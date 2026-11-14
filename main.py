@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, date
 from decimal import Decimal
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -50,6 +51,10 @@ os.makedirs("static/img", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Função auxiliar para garantir a primeira letra maiúscula de cada palavra
+def formatar_titulo(texto: str) -> str:
+    return " ".join(palavra.capitalize() for palavra in texto.strip().split())
+
 # --- ROTAS DO SISTEMA ---
 
 @app.get("/", response_class=HTMLResponse)
@@ -77,7 +82,8 @@ def home(request: Request):
             context={
                 "produtos": produtos,
                 "vendas": vendas,
-                "produtos_json": produtos_json
+                "produtos_json": produtos_json,
+                "data_hoje": date.today().isoformat()
             },
             media_type="text/html; charset=utf-8"
         )
@@ -96,18 +102,21 @@ def salvar_produto(
 ):
     db = SessionLocal()
     try:
+        codigo_formatado = codigo.strip().upper()
+        produto_formatado = formatar_titulo(produto)
+
         if produto_id:
             item = db.query(Estoque).filter(Estoque.id == int(produto_id)).first()
             if item:
-                item.codigo = codigo.strip()
-                item.produto = produto.strip()
+                item.codigo = codigo_formatado
+                item.produto = produto_formatado
                 item.quantidade = quantidade
                 item.vl_custo = Decimal(str(vl_custo))
                 item.vl_venda = Decimal(str(vl_venda))
         else:
             novo_item = Estoque(
-                codigo=codigo.strip(),
-                produto=produto.strip(),
+                codigo=codigo_formatado,
+                produto=produto_formatado,
                 quantidade=quantidade,
                 vl_custo=Decimal(str(vl_custo)),
                 vl_venda=Decimal(str(vl_venda))
@@ -141,20 +150,27 @@ def registrar_venda(
     produto: str = Form(...),
     quantidade: int = Form(...),
     vl_custo: float = Form(...),
-    vl_venda: float = Form(...)
+    vl_venda: float = Form(...),
+    data_venda: str = Form(...)
 ):
     db = SessionLocal()
     try:
+        # Converte a data selecionada (YYYY-MM-DD) combinando com o horário atual
+        data_parsed = datetime.strptime(data_venda, "%Y-%m-%d")
+        agora = datetime.now()
+        data_final = data_parsed.replace(hour=agora.hour, minute=agora.minute, second=agora.second)
+
         nova_venda = Venda(
-            codigo=codigo.strip(),
-            produto=produto.strip(),
+            codigo=codigo.strip().upper(),
+            produto=formatar_titulo(produto),
             quantidade=quantidade,
             vl_custo=Decimal(str(vl_custo)),
-            vl_venda=Decimal(str(vl_venda))
+            vl_venda=Decimal(str(vl_venda)),
+            data_venda=data_final
         )
         db.add(nova_venda)
 
-        item_estoque = db.query(Estoque).filter(Estoque.codigo == codigo.strip()).first()
+        item_estoque = db.query(Estoque).filter(Estoque.codigo == codigo.strip().upper()).first()
         if item_estoque:
             item_estoque.quantidade = max(0, item_estoque.quantidade - quantidade)
 
