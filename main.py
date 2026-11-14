@@ -24,6 +24,12 @@ Base = declarative_base()
 
 # --- MODELOS DAS TABELAS ---
 
+class CadastroProduto(Base):
+    __tablename__ = "cadastro_produtos"
+    id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String(50), unique=True, nullable=False)
+    produto = Column(String(255), nullable=False)
+
 class Estoque(Base):
     __tablename__ = "estoque"
     id = Column(Integer, primary_key=True, index=True)
@@ -43,6 +49,7 @@ class Venda(Base):
     vl_venda = Column(Numeric(10, 2), nullable=False, default=0.00)
     data_venda = Column(DateTime(timezone=True), server_default=func.now())
 
+# Cria as 3 tabelas automaticamente no Supabase caso ainda não existam
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Universo Místico - Estoque & Vendas")
@@ -58,13 +65,23 @@ def formatar_titulo(texto: str) -> str:
 # --- ROTAS DO SISTEMA ---
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
+def home(request: Request, aba: str = "vendas"):
     db = SessionLocal()
     try:
-        produtos = db.query(Estoque).order_by(Estoque.produto.asc()).all()
+        cadastros = db.query(CadastroProduto).order_by(CadastroProduto.produto.asc()).all()
+        estoque_itens = db.query(Estoque).order_by(Estoque.produto.asc()).all()
         vendas = db.query(Venda).order_by(Venda.id.desc()).limit(30).all()
         
-        produtos_json = [
+        cadastros_json = [
+            {
+                "id": c.id,
+                "codigo": c.codigo,
+                "produto": c.produto
+            }
+            for c in cadastros
+        ]
+
+        estoque_json = [
             {
                 "id": p.id,
                 "codigo": p.codigo,
@@ -73,26 +90,82 @@ def home(request: Request):
                 "vl_custo": float(p.vl_custo),
                 "vl_venda": float(p.vl_venda)
             }
-            for p in produtos
+            for p in estoque_itens
         ]
         
         return templates.TemplateResponse(
             request=request,
             name="index.html",
             context={
-                "produtos": produtos,
+                "cadastros": cadastros,
+                "produtos": estoque_itens,
                 "vendas": vendas,
-                "produtos_json": produtos_json,
-                "data_hoje": date.today().isoformat()
+                "cadastros_json": cadastros_json,
+                "estoque_json": estoque_json,
+                "data_hoje": date.today().isoformat(),
+                "aba_ativa": aba
             },
             media_type="text/html; charset=utf-8"
         )
     finally:
         db.close()
 
-# Salvar (Novo Cadastro ou Edição) na tabela estoque
+# ==========================================
+# ROTAS: CADASTRO DE PRODUTOS (CATÁLOGO)
+# ==========================================
+
+@app.post("/cadastro-produtos/salvar")
+def salvar_cadastro_produto(
+    cadastro_id: str = Form(""),
+    codigo: str = Form(...),
+    produto: str = Form(...)
+):
+    db = SessionLocal()
+    try:
+        codigo_fmt = codigo.strip().upper()
+        produto_fmt = formatar_titulo(produto)
+
+        if cadastro_id:
+            item = db.query(CadastroProduto).filter(CadastroProduto.id == int(cadastro_id)).first()
+            if item:
+                codigo_antigo = item.codigo
+                item.codigo = codigo_fmt
+                item.produto = produto_fmt
+
+                # Sincroniza nome/código caso o item já exista no estoque
+                item_est = db.query(Estoque).filter(Estoque.codigo == codigo_antigo).first()
+                if item_est:
+                    item_est.codigo = codigo_fmt
+                    item_est.produto = produto_fmt
+        else:
+            novo = CadastroProduto(codigo=codigo_fmt, produto=produto_fmt)
+            db.add(novo)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Erro ao salvar cadastro de produto: {str(e)}")
+    finally:
+        db.close()
+    return RedirectResponse(url="/?aba=cadastro", status_code=303)
+
+@app.post("/cadastro-produtos/excluir/{id}")
+def excluir_cadastro_produto(id: int):
+    db = SessionLocal()
+    try:
+        item = db.query(CadastroProduto).filter(CadastroProduto.id == id).first()
+        if item:
+            db.delete(item)
+            db.commit()
+    finally:
+        db.close()
+    return RedirectResponse(url="/?aba=cadastro", status_code=303)
+
+# ==========================================
+# ROTAS: LANÇAMENTO EM ESTOQUE
+# ==========================================
+
 @app.post("/estoque/salvar")
-def salvar_produto(
+def salvar_estoque(
     produto_id: str = Form(""),
     codigo: str = Form(...),
     produto: str = Form(...),
@@ -102,37 +175,44 @@ def salvar_produto(
 ):
     db = SessionLocal()
     try:
-        codigo_formatado = codigo.strip().upper()
-        produto_formatado = formatar_titulo(produto)
+        codigo_fmt = codigo.strip().upper()
+        produto_fmt = formatar_titulo(produto)
 
         if produto_id:
+            # Edição direta de uma linha existente no estoque (substitui valores)
             item = db.query(Estoque).filter(Estoque.id == int(produto_id)).first()
             if item:
-                item.codigo = codigo_formatado
-                item.produto = produto_formatado
+                item.codigo = codigo_fmt
+                item.produto = produto_fmt
                 item.quantidade = quantidade
                 item.vl_custo = Decimal(str(vl_custo))
                 item.vl_venda = Decimal(str(vl_venda))
         else:
-            novo_item = Estoque(
-                codigo=codigo_formatado,
-                produto=produto_formatado,
-                quantidade=quantidade,
-                vl_custo=Decimal(str(vl_custo)),
-                vl_venda=Decimal(str(vl_venda))
-            )
-            db.add(novo_item)
+            # Novo lançamento de chegada de mercadoria: se já existir no estoque, soma a quantidade
+            item_existente = db.query(Estoque).filter(Estoque.codigo == codigo_fmt).first()
+            if item_existente:
+                item_existente.quantidade += quantidade
+                item_existente.vl_custo = Decimal(str(vl_custo))
+                item_existente.vl_venda = Decimal(str(vl_venda))
+            else:
+                novo_item = Estoque(
+                    codigo=codigo_fmt,
+                    produto=produto_fmt,
+                    quantidade=quantidade,
+                    vl_custo=Decimal(str(vl_custo)),
+                    vl_venda=Decimal(str(vl_venda))
+                )
+                db.add(novo_item)
         db.commit()
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Erro ao salvar produto: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Erro ao lançar no estoque: {str(e)}")
     finally:
         db.close()
-    return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url="/?aba=estoque", status_code=303)
 
-# Excluir produto da tabela estoque
 @app.post("/estoque/excluir/{id}")
-def excluir_produto(id: int):
+def excluir_estoque(id: int):
     db = SessionLocal()
     try:
         item = db.query(Estoque).filter(Estoque.id == id).first()
@@ -141,9 +221,12 @@ def excluir_produto(id: int):
             db.commit()
     finally:
         db.close()
-    return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url="/?aba=estoque", status_code=303)
 
-# Registrar venda na tabela vendas e dar baixa no estoque
+# ==========================================
+# ROTAS: REGISTRO DE VENDAS
+# ==========================================
+
 @app.post("/vendas/registrar")
 def registrar_venda(
     codigo: str = Form(...),
@@ -155,7 +238,6 @@ def registrar_venda(
 ):
     db = SessionLocal()
     try:
-        # Converte a data selecionada (YYYY-MM-DD) combinando com o horário atual
         data_parsed = datetime.strptime(data_venda, "%Y-%m-%d")
         agora = datetime.now()
         data_final = data_parsed.replace(hour=agora.hour, minute=agora.minute, second=agora.second)
@@ -170,6 +252,7 @@ def registrar_venda(
         )
         db.add(nova_venda)
 
+        # Dá baixa na tabela estoque
         item_estoque = db.query(Estoque).filter(Estoque.codigo == codigo.strip().upper()).first()
         if item_estoque:
             item_estoque.quantidade = max(0, item_estoque.quantidade - quantidade)
@@ -180,4 +263,4 @@ def registrar_venda(
         raise HTTPException(status_code=400, detail=f"Erro ao registrar venda: {str(e)}")
     finally:
         db.close()
-    return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url="/?aba=vendas", status_code=303)
