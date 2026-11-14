@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Universo Místico • Estoque & Vendas</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -59,7 +59,7 @@
                 </div>
             </div>
 
-            <!-- Abas de Navegação (Responsivas para Celular e Computador) -->
+            <!-- Abas de Navegação -->
             <nav class="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
                 <button onclick="switchTab('vendas')" id="tab-vendas" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition">
                     ✨ Vendas
@@ -74,30 +74,68 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 pt-6 space-y-8">
+    <main class="max-w-7xl mx-auto px-4 pt-6 space-y-6">
 
-        <!-- ========================================== -->
-        <!-- SEÇÃO 1: VENDAS (VINCULADA À TABELA ESTOQUE)-->
-        <!-- ========================================== -->
+        <!-- MENSAGENS DE FEEDBACK -->
+        {% if erro %}
+        <div class="rounded-xl bg-rose-950/90 border border-rose-500/50 px-4 py-3 text-sm text-rose-200 flex items-center justify-between shadow-lg">
+            <span>⚠️ <strong>Atenção:</strong> {{ erro }}</span>
+            <button onclick="this.parentElement.remove()" class="text-rose-300 hover:text-white font-bold px-2">✕</button>
+        </div>
+        {% endif %}
+
+        {% if ok %}
+        <div class="rounded-xl bg-emerald-950/90 border border-emerald-500/50 px-4 py-3 text-sm text-emerald-200 flex items-center justify-between shadow-lg">
+            <span>✦ {{ ok }}</span>
+            <button onclick="this.parentElement.remove()" class="text-emerald-300 hover:text-white font-bold px-2">✕</button>
+        </div>
+        {% endif %}
+
+        <!-- ======================================================= -->
+        <!-- SEÇÃO 1: VENDAS (MULTI-PRODUTOS POR PEDIDO + TOTAL)     -->
+        <!-- ======================================================= -->
         <section id="sec-vendas" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- Formulário de Lançamento de Venda -->
+            <!-- Formulário de Lançamento de Pedido -->
             <div class="lg:col-span-5 glass-card rounded-2xl p-6 h-fit">
-                <div class="flex items-center gap-2 mb-5 border-b border-purple-800/40 pb-3">
-                    <span class="text-xl">🌙</span>
-                    <h2 class="font-mystic text-lg font-semibold text-amber-200">Registrar Venda</h2>
+                <div class="flex items-center justify-between mb-5 border-b border-purple-800/40 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">🌙</span>
+                        <h2 class="font-mystic text-lg font-semibold text-amber-200">Registrar Pedido</h2>
+                    </div>
+                    <span class="text-xs font-mono px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                        {{ proximo_pedido }}
+                    </span>
                 </div>
 
-                <form action="/vendas/registrar" method="POST" class="space-y-4">
-                    <!-- Campo oculto vl_custo preenchido automaticamente -->
-                    <input type="hidden" name="vl_custo" id="venda_vl_custo" value="0.00">
+                <form action="/vendas/registrar" method="POST" onsubmit="return prepararEnvioPedido()" class="space-y-4">
+                    <input type="hidden" id="venda_vl_custo" value="0.00">
+                    <input type="hidden" name="itens_pedido_json" id="itens_pedido_json">
 
-                    <div>
-                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Produto (Estoque)</label>
-                        <select name="produto" id="venda_produto" onchange="selecionarProdutoVenda()" required class="input-mystic capitalize w-full rounded-xl px-3.5 py-2.5 text-sm">
+                    <!-- Cabeçalho do Pedido: Nº Pedido e Data -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Nº Pedido</label>
+                            <input type="text" name="n_pedido" id="venda_n_pedido" value="{{ proximo_pedido }}" required
+                                   class="input-mystic uppercase font-mono w-full rounded-xl px-3.5 py-2.5 text-sm text-amber-200 font-semibold">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Data da Venda</label>
+                            <input type="date" name="data_venda" id="venda_data" value="{{ data_hoje }}" required
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm ring-1 ring-purple-500/40 focus:ring-2 focus:ring-amber-400">
+                        </div>
+                    </div>
+
+                    <!-- Seleção de Produto -->
+                    <div class="pt-2 border-t border-purple-900/40">
+                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Adicionar Produto (Estoque)</label>
+                        <select id="venda_produto" onchange="selecionarProdutoVenda()" class="input-mystic capitalize w-full rounded-xl px-3.5 py-2.5 text-sm">
                             <option value="" disabled selected>Selecione um produto do estoque...</option>
                             {% for p in produtos %}
-                            <option value="{{ p.produto }}">{{ p.produto }}</option>
+                            <option value="{{ p.produto }}" {% if p.quantidade <= 0 %}disabled{% endif %}>
+                                {{ p.produto }} {% if p.quantidade <= 0 %}(Esgotado){% endif %}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -105,12 +143,12 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Código</label>
-                            <input type="text" name="codigo" id="venda_codigo" readonly required placeholder="Automático"
+                            <input type="text" id="venda_codigo" readonly placeholder="Automático"
                                    class="input-mystic uppercase w-full rounded-xl px-3.5 py-2.5 text-sm bg-purple-950/30 text-amber-200/90 cursor-not-allowed">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Qtd. em Estoque</label>
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Disp. Estoque</label>
                             <input type="text" id="venda_estoque_disponivel" readonly placeholder="0 un."
                                    class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm bg-purple-950/30 text-purple-200 font-semibold cursor-not-allowed">
                         </div>
@@ -118,80 +156,113 @@
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Data da Venda</label>
-                            <input type="date" name="data_venda" id="venda_data" value="{{ data_hoje }}" required
-                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm ring-1 ring-purple-500/40 focus:ring-2 focus:ring-amber-400">
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Quantidade</label>
+                            <input type="number" id="venda_quantidade" value="1" min="1"
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Quantidade Venda</label>
-                            <input type="number" name="quantidade" id="venda_quantidade" value="1" min="1" required
-                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">
+                                Vl. Unitário (R$) <span class="text-[10px] text-emerald-400 normal-case">(Alterável)</span>
+                            </label>
+                            <input type="number" step="0.01" id="venda_vl_venda" placeholder="0.00"
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm font-semibold text-emerald-300">
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">
-                            Valor de Venda (R$) <span class="text-[10px] text-emerald-400 normal-case">(Alterável)</span>
-                        </label>
-                        <input type="number" step="0.01" name="vl_venda" id="venda_vl_venda" required placeholder="0.00"
-                               class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-base font-semibold text-emerald-300">
+                    <button type="button" onclick="adicionarItemAoPedido()" class="w-full py-2.5 px-4 rounded-xl font-medium text-sm text-amber-200 bg-purple-900/60 hover:bg-purple-800/70 border border-amber-400/40 transition flex items-center justify-center gap-2">
+                        <span>＋</span> Adicionar Item ao Pedido
+                    </button>
+
+                    <!-- Lista de Itens Adicionados no Pedido Atual -->
+                    <div class="rounded-xl bg-[#110d1f] border border-purple-800/40 p-3 space-y-2">
+                        <div class="flex items-center justify-between text-xs text-purple-300 uppercase tracking-wider border-b border-purple-900/50 pb-1.5">
+                            <span>Itens do Pedido</span>
+                            <span id="contador_itens_pedido">0 itens</span>
+                        </div>
+
+                        <div id="lista_itens_carrinho" class="divide-y divide-purple-900/30 max-h-48 overflow-y-auto text-xs">
+                            <p class="py-4 text-center text-purple-400/60">Nenhum item adicionado ao pedido ainda.</p>
+                        </div>
+
+                        <!-- VALOR TOTAL DO PEDIDO -->
+                        <div class="pt-2.5 border-t border-purple-700/40 flex items-center justify-between">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-purple-200">Valor Total do Pedido:</span>
+                            <span id="valor_total_pedido" class="text-lg font-bold text-emerald-400">R$ 0,00</span>
+                        </div>
                     </div>
 
                     <button type="submit" class="w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-600 hover:opacity-95 shadow-lg shadow-purple-700/30 transition transform active:scale-[0.99]">
-                        Lançar Venda
+                        Finalizar Pedido & Baixar Estoque
                     </button>
                 </form>
             </div>
 
-            <!-- Histórico de Vendas -->
+            <!-- Histórico de Pedidos Realizados -->
             <div class="lg:col-span-7 glass-card rounded-2xl p-6">
                 <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
-                    <h3 class="font-mystic text-lg font-semibold text-purple-200">Últimas Vendas</h3>
+                    <h3 class="font-mystic text-lg font-semibold text-purple-200">Últimos Pedidos</h3>
                     <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-700/40">
-                        {{ vendas|length }} lançamentos
+                        {{ pedidos|length }} pedidos
                     </span>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
-                                <th class="py-2.5 px-2">Data</th>
-                                <th class="py-2.5 px-2">Cód.</th>
-                                <th class="py-2.5 px-2">Produto</th>
-                                <th class="py-2.5 px-2 text-center">Qtd</th>
-                                <th class="py-2.5 px-2 text-right">Vl. Venda</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-purple-900/30 text-sm">
-                            {% for v in vendas %}
-                            <tr class="hover:bg-purple-900/20 transition">
-                                <td class="py-3 px-2 text-xs text-purple-300/80">
-                                    {{ v.data_venda.strftime('%d/%m/%Y') if v.data_venda else '-' }}
-                                </td>
-                                <td class="py-3 px-2 font-mono text-xs text-amber-300/80">{{ v.codigo }}</td>
-                                <td class="py-3 px-2 font-medium text-slate-200 capitalize">{{ v.produto }}</td>
-                                <td class="py-3 px-2 text-center">{{ v.quantidade }}</td>
-                                <td class="py-3 px-2 text-right font-semibold text-emerald-400">R$ {{ "%.2f"|format(v.vl_venda) }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="5" class="py-8 text-center text-purple-400/60 text-sm">Nenhuma venda registrada ainda.</td>
-                            </tr>
+                <div class="space-y-3">
+                    {% for ped in pedidos %}
+                    <div class="rounded-xl bg-[#130f22]/90 border border-purple-800/40 p-4 {{ 'opacity-55' if ped.status == 'CANCELADA' else '' }}">
+                        <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-purple-900/40">
+                            <div class="flex items-center gap-2.5">
+                                <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                    {{ ped.n_pedido }}
+                                </span>
+                                <span class="text-xs text-purple-300/80">
+                                    {{ ped.data_venda.strftime('%d/%m/%Y %H:%M') if ped.data_venda else '-' }}
+                                </span>
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-bold text-emerald-400">
+                                    Total: R$ {{ "%.2f"|format(ped.total_pedido) }}
+                                </span>
+
+                                {% if ped.status == 'CANCELADA' %}
+                                    <span class="px-2 py-0.5 rounded text-[11px] bg-rose-950 text-rose-300 border border-rose-700/40">Estornado</span>
+                                {% else %}
+                                    <form action="/vendas/estornar-pedido/{{ ped.n_pedido }}" method="POST" onsubmit="return confirm('Estornar o pedido {{ ped.n_pedido }} completo e devolver todos os itens ao estoque?');" class="inline">
+                                        <button type="submit" class="px-2.5 py-1 rounded-lg text-[11px] bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 transition">
+                                            Estornar Pedido
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Itens dentro do pedido -->
+                        <ul class="mt-2.5 space-y-1.5 text-xs">
+                            {% for item in ped.itens %}
+                            <li class="flex items-center justify-between text-slate-300">
+                                <span>
+                                    <span class="font-mono text-amber-300/70">[{{ item.codigo }}]</span>
+                                    <span class="capitalize font-medium {{ 'line-through' if ped.status == 'CANCELADA' else '' }}">{{ item.produto }}</span>
+                                    <span class="text-purple-300">× {{ item.quantidade }} un.</span>
+                                </span>
+                                <span class="text-slate-400">R$ {{ "%.2f"|format(item.subtotal) }}</span>
+                            </li>
                             {% endfor %}
-                        </tbody>
-                    </table>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <div class="py-10 text-center text-purple-400/60 text-sm">Nenhum pedido registrado ainda.</div>
+                    {% endfor %}
                 </div>
             </div>
         </section>
 
         <!-- ======================================================= -->
-        <!-- SEÇÃO 2: LANÇAMENTO DE PRODUTOS EM ESTOQUE (ENTRADA)    -->
+        <!-- SEÇÃO 2: LANÇAMENTO DE PRODUTOS EM ESTOQUE + KARDEX     -->
         <!-- ======================================================= -->
         <section id="sec-estoque" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- Formulário de Lançamento de Produtos em Estoque -->
             <div class="lg:col-span-4 glass-card rounded-2xl p-6 h-fit">
                 <div class="flex items-center justify-between mb-5 border-b border-purple-800/40 pb-3">
                     <div class="flex items-center gap-2">
@@ -214,11 +285,6 @@
                             <option value="{{ c.produto }}">{{ c.produto }}</option>
                             {% endfor %}
                         </select>
-                        {% if not cadastros %}
-                        <p class="text-[11px] text-amber-300/80 mt-1">
-                            * Nenhum item cadastrado. Acesse a aba <strong>Cadastro Produtos</strong> primeiro.
-                        </p>
-                        {% endif %}
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -256,61 +322,111 @@
                 </form>
             </div>
 
-            <!-- Tabela de Produtos em Estoque -->
-            <div class="lg:col-span-8 glass-card rounded-2xl p-6">
-                <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
-                    <h3 class="font-mystic text-lg font-semibold text-purple-200">Saldo Atual em Estoque</h3>
-                    <span class="text-xs px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/40">
-                        {{ produtos|length }} itens
-                    </span>
+            <div class="lg:col-span-8 space-y-6">
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                        <h3 class="font-mystic text-lg font-semibold text-purple-200">Saldo Atual em Estoque</h3>
+                        <span class="text-xs px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/40">
+                            {{ produtos|length }} itens
+                        </span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
+                                    <th class="py-2.5 px-2">Cód.</th>
+                                    <th class="py-2.5 px-2">Produto</th>
+                                    <th class="py-2.5 px-2 text-center">Qtd</th>
+                                    <th class="py-2.5 px-2 text-right">Custo</th>
+                                    <th class="py-2.5 px-2 text-right">Venda</th>
+                                    <th class="py-2.5 px-2 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-purple-900/30 text-sm">
+                                {% for p in produtos %}
+                                <tr class="hover:bg-purple-900/20 transition">
+                                    <td class="py-3 px-2 font-mono text-xs text-amber-300">{{ p.codigo }}</td>
+                                    <td class="py-3 px-2 font-medium text-slate-200 capitalize">{{ p.produto }}</td>
+                                    <td class="py-3 px-2 text-center">
+                                        <span class="px-2 py-0.5 rounded-md text-xs font-semibold {{ 'bg-rose-950 text-rose-300 border border-rose-700/40' if p.quantidade <= 2 else 'bg-purple-950 text-purple-200' }}">
+                                            {{ p.quantidade }}
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-2 text-right text-slate-400">R$ {{ "%.2f"|format(p.vl_custo) }}</td>
+                                    <td class="py-3 px-2 text-right font-semibold text-emerald-400">R$ {{ "%.2f"|format(p.vl_venda) }}</td>
+                                    <td class="py-3 px-2 text-center">
+                                        <div class="flex items-center justify-center gap-2">
+                                            <button type="button" 
+                                                    onclick='editarProdutoEstoque({{ {"id": p.id, "codigo": p.codigo, "produto": p.produto, "quantidade": p.quantidade, "vl_custo": p.vl_custo|float, "vl_venda": p.vl_venda|float}|tojson }})'
+                                                    class="px-2.5 py-1 rounded-lg text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30">
+                                                Editar
+                                            </button>
+                                            <form action="/estoque/excluir/{{ p.id }}" method="POST" onsubmit="return confirm('Excluir este lançamento do estoque?');" class="inline">
+                                                <button type="submit" class="px-2.5 py-1 rounded-lg text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30">
+                                                    Excluir
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="py-8 text-center text-purple-400/60 text-sm">Nenhum produto lançado no estoque ainda.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
-                                <th class="py-2.5 px-2">Cód.</th>
-                                <th class="py-2.5 px-2">Produto</th>
-                                <th class="py-2.5 px-2 text-center">Qtd</th>
-                                <th class="py-2.5 px-2 text-right">Custo</th>
-                                <th class="py-2.5 px-2 text-right">Venda</th>
-                                <th class="py-2.5 px-2 text-center">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-purple-900/30 text-sm">
-                            {% for p in produtos %}
-                            <tr class="hover:bg-purple-900/20 transition">
-                                <td class="py-3 px-2 font-mono text-xs text-amber-300">{{ p.codigo }}</td>
-                                <td class="py-3 px-2 font-medium text-slate-200 capitalize">{{ p.produto }}</td>
-                                <td class="py-3 px-2 text-center">
-                                    <span class="px-2 py-0.5 rounded-md text-xs font-semibold {{ 'bg-rose-950 text-rose-300 border border-rose-700/40' if p.quantidade <= 2 else 'bg-purple-950 text-purple-200' }}">
-                                        {{ p.quantidade }}
-                                    </span>
-                                </td>
-                                <td class="py-3 px-2 text-right text-slate-400">R$ {{ "%.2f"|format(p.vl_custo) }}</td>
-                                <td class="py-3 px-2 text-right font-semibold text-emerald-400">R$ {{ "%.2f"|format(p.vl_venda) }}</td>
-                                <td class="py-3 px-2 text-center">
-                                    <div class="flex items-center justify-center gap-2">
-                                        <button type="button" 
-                                                onclick='editarProdutoEstoque({{ {"id": p.id, "codigo": p.codigo, "produto": p.produto, "quantidade": p.quantidade, "vl_custo": p.vl_custo|float, "vl_venda": p.vl_venda|float}|tojson }})'
-                                                class="px-2.5 py-1 rounded-lg text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30">
-                                            Editar
-                                        </button>
-                                        <form action="/estoque/excluir/{{ p.id }}" method="POST" onsubmit="return confirm('Excluir este lançamento do estoque?');" class="inline">
-                                            <button type="submit" class="px-2.5 py-1 rounded-lg text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30">
-                                                Excluir
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="6" class="py-8 text-center text-purple-400/60 text-sm">Nenhum produto lançado no estoque ainda.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <!-- Kardex: Auditoria de Movimentações -->
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                        <h3 class="font-mystic text-base font-semibold text-purple-200">Histórico de Movimentações (Auditoria)</h3>
+                        <span class="text-xs text-purple-400">Últimas 30 operações</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-purple-800/40 text-purple-300 uppercase">
+                                    <th class="py-2 px-2">Data/Hora</th>
+                                    <th class="py-2 px-2">Tipo</th>
+                                    <th class="py-2 px-2">Produto</th>
+                                    <th class="py-2 px-2 text-center">Mov.</th>
+                                    <th class="py-2 px-2 text-center">Saldo Final</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-purple-900/30">
+                                {% for m in movimentacoes %}
+                                <tr class="hover:bg-purple-900/20">
+                                    <td class="py-2 px-2 text-slate-400">{{ m.data_movimentacao.strftime('%d/%m %H:%M') if m.data_movimentacao else '-' }}</td>
+                                    <td class="py-2 px-2">
+                                        {% if m.tipo == 'SAIDA_VENDA' %}
+                                            <span class="px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200">Venda</span>
+                                        {% elif m.tipo == 'ENTRADA' %}
+                                            <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300">Entrada</span>
+                                        {% elif m.tipo == 'ESTORNO_VENDA' %}
+                                            <span class="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300">Estorno</span>
+                                        {% else %}
+                                            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">Ajuste</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-2 px-2 text-slate-200 capitalize">{{ m.produto }}</td>
+                                    <td class="py-2 px-2 text-center font-semibold {{ 'text-rose-400' if m.quantidade < 0 else 'text-emerald-400' }}">
+                                        {{ '+' ~ m.quantidade if m.quantidade > 0 else m.quantidade }}
+                                    </td>
+                                    <td class="py-2 px-2 text-center font-mono text-amber-200">{{ m.saldo_atual }} un.</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="py-4 text-center text-purple-400/60">Nenhuma movimentação registrada ainda.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>
@@ -320,7 +436,6 @@
         <!-- ======================================================= -->
         <section id="sec-cadastro" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- Formulário de Cadastro de Produtos -->
             <div class="lg:col-span-4 glass-card rounded-2xl p-6 h-fit">
                 <div class="flex items-center justify-between mb-5 border-b border-purple-800/40 pb-3">
                     <div class="flex items-center gap-2">
@@ -353,7 +468,6 @@
                 </form>
             </div>
 
-            <!-- Lista de Produtos Cadastrados -->
             <div class="lg:col-span-8 glass-card rounded-2xl p-6">
                 <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
                     <h3 class="font-mystic text-lg font-semibold text-purple-200">Produtos Cadastrados</h3>
@@ -411,9 +525,11 @@
         const listaCadastros = {{ cadastros_json | tojson }};
         const listaEstoque = {{ estoque_json | tojson }};
         const abaInicial = "{{ aba_ativa }}";
+        
+        let itensPedido = [];
+        let saldoAtualSelecionado = 0;
 
         document.addEventListener("DOMContentLoaded", () => {
-            // Ajusta data atual no fuso local e foca no campo de data da venda
             const campoData = document.getElementById('venda_data');
             if (campoData) {
                 const hoje = new Date();
@@ -422,12 +538,9 @@
                 const dia = String(hoje.getDate()).padStart(2, '0');
                 campoData.value = `${ano}-${mes}-${dia}`;
             }
-
-            // Abre a aba correta após salvar/editar/excluir
             switchTab(abaInicial || 'vendas');
         });
 
-        // Força primeira letra maiúscula durante a digitação
         function capitalizarPrimeiraLetra(input) {
             const pos = input.selectionStart;
             input.value = input.value.replace(/\b\w/g, char => char.toUpperCase());
@@ -461,14 +574,13 @@
                 }
             });
 
-            // Coloca o campo data da venda em foco quando a aba Vendas estiver ativa
             if (tab === 'vendas') {
                 const campoData = document.getElementById('venda_data');
                 if (campoData) campoData.focus();
             }
         }
 
-        // --- FUNÇÕES: CADASTRO DE PRODUTOS ---
+        // --- CADASTRO DE PRODUTOS ---
         function editarCadastro(item) {
             document.getElementById('form-cadastro-titulo').innerText = "Editar Cadastro";
             document.getElementById('cad_id').value = item.id;
@@ -488,15 +600,13 @@
             document.getElementById('btn-cancelar-cadastro').classList.add('hidden');
         }
 
-        // --- FUNÇÕES: LANÇAMENTO EM ESTOQUE ---
+        // --- LANÇAMENTO EM ESTOQUE ---
         function selecionarProdutoCadastro() {
             const nomeSelecionado = document.getElementById('est_produto').value;
             const item = listaCadastros.find(c => c.produto === nomeSelecionado);
 
             if (item) {
                 document.getElementById('est_codigo').value = item.codigo;
-
-                // Se o produto já tiver preço cadastrado no estoque, preenche como referência
                 const emEstoque = listaEstoque.find(e => e.codigo === item.codigo);
                 if (emEstoque && !document.getElementById('est_id').value) {
                     document.getElementById('est_custo').value = emEstoque.vl_custo.toFixed(2);
@@ -541,21 +651,146 @@
             document.getElementById('btn-cancelar-edicao').classList.add('hidden');
         }
 
-        // --- FUNÇÕES: VENDAS (VINCULADAS À TABELA ESTOQUE) ---
+        // --- PEDIDO MULTI-PRODUTOS (VENDAS) ---
         function selecionarProdutoVenda() {
             const nomeSelecionado = document.getElementById('venda_produto').value;
             const item = listaEstoque.find(p => p.produto === nomeSelecionado);
 
             if (item) {
+                // Calcula quanto já foi reservado deste item no carrinho atual
+                const jaNoCarrinho = itensPedido
+                    .filter(i => i.codigo === item.codigo)
+                    .reduce((acc, i) => acc + i.quantidade, 0);
+                
+                saldoAtualSelecionado = Math.max(0, item.quantidade - jaNoCarrinho);
+
                 document.getElementById('venda_codigo').value = item.codigo;
-                document.getElementById('venda_estoque_disponivel').value = `${item.quantidade} un.`;
+                document.getElementById('venda_estoque_disponivel').value = `${saldoAtualSelecionado} un.`;
                 document.getElementById('venda_vl_custo').value = item.vl_custo.toFixed(2);
                 document.getElementById('venda_vl_venda').value = item.vl_venda.toFixed(2);
                 
-                // Limita a quantidade máxima da venda ao disponível em estoque (se > 0)
                 const campoQtd = document.getElementById('venda_quantidade');
-                campoQtd.max = item.quantidade > 0 ? item.quantidade : 1;
+                campoQtd.max = saldoAtualSelecionado;
+                campoQtd.value = saldoAtualSelecionado > 0 ? 1 : 0;
             }
+        }
+
+        function adicionarItemAoPedido() {
+            const selectProd = document.getElementById('venda_produto');
+            const produto = selectProd.value;
+            const codigo = document.getElementById('venda_codigo').value;
+            const quantidade = parseInt(document.getElementById('venda_quantidade').value);
+            const vlCusto = parseFloat(document.getElementById('venda_vl_custo').value);
+            const vlVenda = parseFloat(document.getElementById('venda_vl_venda').value);
+
+            if (!produto || !codigo) {
+                alert("Selecione um produto do estoque primeiro.");
+                return;
+            }
+            if (isNaN(quantidade) || quantidade <= 0) {
+                alert("Informe uma quantidade válida maior que zero.");
+                return;
+            }
+            if (quantidade > saldoAtualSelecionado) {
+                alert(`Saldo insuficiente! Você possui apenas ${saldoAtualSelecionado} un. disponíveis deste item.`);
+                return;
+            }
+            if (isNaN(vlVenda) || vlVenda < 0) {
+                alert("Informe um valor de venda válido.");
+                return;
+            }
+
+            // Se o mesmo produto com o mesmo preço já estiver na lista, soma a quantidade
+            const existente = itensPedido.find(i => i.codigo === codigo && i.vl_venda === vlVenda);
+            if (existente) {
+                existente.quantidade += quantidade;
+            } else {
+                itensPedido.push({
+                    codigo: codigo,
+                    produto: produto,
+                    quantidade: quantidade,
+                    vl_custo: vlCusto,
+                    vl_venda: vlVenda
+                });
+            }
+
+            renderizarCarrinhoPedido();
+
+            // Limpa seleção atual para facilitar adicionar o próximo item
+            selectProd.value = "";
+            document.getElementById('venda_codigo').value = "";
+            document.getElementById('venda_estoque_disponivel').value = "";
+            document.getElementById('venda_quantidade').value = 1;
+            document.getElementById('venda_vl_venda').value = "";
+            saldoAtualSelecionado = 0;
+        }
+
+        function removerItemDoPedido(index) {
+            itensPedido.splice(index, 1);
+            renderizarCarrinhoPedido();
+            if (document.getElementById('venda_produto').value) {
+                selecionarProdutoVenda();
+            }
+        }
+
+        function renderizarCarrinhoPedido() {
+            const container = document.getElementById('lista_itens_carrinho');
+            const contador = document.getElementById('contador_itens_pedido');
+            const totalEl = document.getElementById('valor_total_pedido');
+
+            if (itensPedido.length === 0) {
+                container.innerHTML = '<p class="py-4 text-center text-purple-400/60">Nenhum item adicionado ao pedido ainda.</p>';
+                contador.innerText = '0 itens';
+                totalEl.innerText = 'R$ 0,00';
+                return;
+            }
+
+            let html = '';
+            let totalGeral = 0;
+            let totalQtd = 0;
+
+            itensPedido.forEach((item, idx) => {
+                const subtotal = item.quantidade * item.vl_venda;
+                totalGeral += subtotal;
+                totalQtd += item.quantidade;
+
+                html += `
+                    <div class="py-2 flex items-center justify-between gap-2">
+                        <div>
+                            <div class="font-medium text-slate-200 capitalize">${item.produto}</div>
+                            <div class="text-[11px] text-purple-300/80">
+                                <span class="font-mono text-amber-300/80">${item.codigo}</span> • ${item.quantidade}x R$ ${item.vl_venda.toFixed(2).replace('.', ',')}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <span class="font-semibold text-emerald-400">R$ ${subtotal.toFixed(2).replace('.', ',')}</span>
+                            <button type="button" onclick="removerItemDoPedido(${idx})" title="Remover item" class="text-rose-400 hover:text-rose-300 font-bold px-1.5 py-0.5 rounded bg-rose-950/50">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            contador.innerText = `${totalQtd} un. (${itensPedido.length} ${itensPedido.length === 1 ? 'item' : 'itens'})`;
+            totalEl.innerText = `R$ ${totalGeral.toFixed(2).replace('.', ',')}`;
+        }
+
+        function prepararEnvioPedido() {
+            // Caso o usuário tenha preenchido um produto mas clicado direto em "Finalizar Pedido" sem clicar em "+ Adicionar Item"
+            const prodAtual = document.getElementById('venda_produto').value;
+            if (itensPedido.length === 0 && prodAtual) {
+                adicionarItemAoPedido();
+            }
+
+            if (itensPedido.length === 0) {
+                alert("Adicione pelo menos um produto ao pedido antes de finalizar.");
+                return false;
+            }
+
+            document.getElementById('itens_pedido_json').value = JSON.stringify(itensPedido);
+            return true;
         }
     </script>
 </body>
