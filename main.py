@@ -44,7 +44,7 @@ class Venda(Base):
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Empório Arcano - Estoque & Vendas")
+app = FastAPI(title="Universo Místico - Estoque & Vendas")
 
 os.makedirs("static/img", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -71,7 +71,6 @@ def home(request: Request):
             for p in produtos
         ]
         
-        # Assinatura atualizada do Starlette/FastAPI: request vai primeiro
         return templates.TemplateResponse(
             request=request,
             name="index.html",
