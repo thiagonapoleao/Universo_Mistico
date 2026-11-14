@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Numeric, DateTime, func
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# String de conexão do Supabase (usa variável de ambiente do Render se existir, senão usa a URI direta)
+# String de conexão do Supabase (usa variável de ambiente DATABASE_URL do Render se existir)
 DEFAULT_SUPABASE_URL = "postgresql://postgres:napoleao140205@db.awqxrriqpjipzygnwmin.supabase.co:5432/postgres"
 DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_SUPABASE_URL)
 
@@ -17,7 +17,6 @@ if DATABASE_URL.startswith("postgres://"):
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
-# pool_pre_ping=True evita queda de conexão ociosa no Supabase
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -43,7 +42,6 @@ class Venda(Base):
     vl_venda = Column(Numeric(10, 2), nullable=False, default=0.00)
     data_venda = Column(DateTime(timezone=True), server_default=func.now())
 
-# Cria as tabelas automaticamente no Supabase caso ainda não existam
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Empório Arcano - Estoque & Vendas")
@@ -73,10 +71,11 @@ def home(request: Request):
             for p in produtos
         ]
         
+        # Assinatura atualizada do Starlette/FastAPI: request vai primeiro
         return templates.TemplateResponse(
-            "index.html",
-            {
-                "request": request,
+            request=request,
+            name="index.html",
+            context={
                 "produtos": produtos,
                 "vendas": vendas,
                 "produtos_json": produtos_json
