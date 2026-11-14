@@ -11,8 +11,11 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 DEFAULT_SUPABASE_URL = "postgresql://postgres:napoleao140205@db.awqxrriqpjipzygnwmin.supabase.co:5432/postgres"
 DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_SUPABASE_URL)
 
+# Garante o prefixo postgresql+psycopg:// para compatibilidade com Python 3.14
 if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 # pool_pre_ping=True evita queda de conexão ociosa no Supabase
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
