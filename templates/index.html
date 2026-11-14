@@ -40,7 +40,7 @@
 
     <!-- CABEÇALHO E LOGOTIPO -->
     <header class="border-b border-purple-900/40 bg-[#0e0b1a]/90 sticky top-0 z-30 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center gap-3">
                 <img src="/static/img/logo.png" 
                      alt="Logotipo Universo Místico" 
@@ -59,22 +59,25 @@
                 </div>
             </div>
 
-            <!-- Abas de Navegação -->
-            <div class="flex gap-2">
-                <button onclick="switchTab('vendas')" id="tab-vendas" class="px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white shadow-lg shadow-purple-600/30 transition">
+            <!-- Abas de Navegação (Responsivas para Celular e Computador) -->
+            <nav class="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                <button onclick="switchTab('vendas')" id="tab-vendas" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition">
                     ✨ Vendas
                 </button>
-                <button onclick="switchTab('estoque')" id="tab-estoque" class="px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-950/60 text-purple-200 border border-purple-700/40 hover:bg-purple-900/50 transition">
+                <button onclick="switchTab('estoque')" id="tab-estoque" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition">
                     🔮 Estoque
                 </button>
-            </div>
+                <button onclick="switchTab('cadastro')" id="tab-cadastro" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition">
+                    📜 Cadastro Produtos
+                </button>
+            </nav>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-4 pt-6 space-y-8">
 
         <!-- ========================================== -->
-        <!-- SEÇÃO 1: FORMULÁRIO DE VENDAS              -->
+        <!-- SEÇÃO 1: VENDAS (VINCULADA À TABELA ESTOQUE)-->
         <!-- ========================================== -->
         <section id="sec-vendas" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
@@ -86,14 +89,15 @@
                 </div>
 
                 <form action="/vendas/registrar" method="POST" class="space-y-4">
+                    <!-- Campo oculto vl_custo preenchido automaticamente -->
                     <input type="hidden" name="vl_custo" id="venda_vl_custo" value="0.00">
 
                     <div>
                         <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Produto (Estoque)</label>
                         <select name="produto" id="venda_produto" onchange="selecionarProdutoVenda()" required class="input-mystic capitalize w-full rounded-xl px-3.5 py-2.5 text-sm">
-                            <option value="" disabled selected>Selecione um produto...</option>
+                            <option value="" disabled selected>Selecione um produto do estoque...</option>
                             {% for p in produtos %}
-                            <option value="{{ p.produto }}">{{ p.produto }} (Estoque: {{ p.quantidade }})</option>
+                            <option value="{{ p.produto }}">{{ p.produto }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -106,26 +110,32 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Data da Venda</label>
-                            <input type="date" name="data_venda" id="venda_data" value="{{ data_hoje }}" required
-                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Qtd. em Estoque</label>
+                            <input type="text" id="venda_estoque_disponivel" readonly placeholder="0 un."
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm bg-purple-950/30 text-purple-200 font-semibold cursor-not-allowed">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Quantidade</label>
-                            <input type="number" name="quantidade" id="venda_quantidade" value="1" min="1" required
-                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Data da Venda</label>
+                            <input type="date" name="data_venda" id="venda_data" value="{{ data_hoje }}" required
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm ring-1 ring-purple-500/40 focus:ring-2 focus:ring-amber-400">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">
-                                Valor Venda (R$) <span class="text-[10px] text-emerald-400 normal-case">(Alterável)</span>
-                            </label>
-                            <input type="number" step="0.01" name="vl_venda" id="venda_vl_venda" required placeholder="0.00"
-                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-base font-semibold text-emerald-300">
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Quantidade Venda</label>
+                            <input type="number" name="quantidade" id="venda_quantidade" value="1" min="1" required
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
                         </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">
+                            Valor de Venda (R$) <span class="text-[10px] text-emerald-400 normal-case">(Alterável)</span>
+                        </label>
+                        <input type="number" step="0.01" name="vl_venda" id="venda_vl_venda" required placeholder="0.00"
+                               class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-base font-semibold text-emerald-300">
                     </div>
 
                     <button type="submit" class="w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-600 hover:opacity-95 shadow-lg shadow-purple-700/30 transition transform active:scale-[0.99]">
@@ -176,17 +186,17 @@
             </div>
         </section>
 
-        <!-- ========================================== -->
-        <!-- SEÇÃO 2: CADASTRO E GESTÃO DE ESTOQUE      -->
-        <!-- ========================================== -->
+        <!-- ======================================================= -->
+        <!-- SEÇÃO 2: LANÇAMENTO DE PRODUTOS EM ESTOQUE (ENTRADA)    -->
+        <!-- ======================================================= -->
         <section id="sec-estoque" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- Formulário de Cadastro / Edição -->
+            <!-- Formulário de Lançamento de Produtos em Estoque -->
             <div class="lg:col-span-4 glass-card rounded-2xl p-6 h-fit">
                 <div class="flex items-center justify-between mb-5 border-b border-purple-800/40 pb-3">
                     <div class="flex items-center gap-2">
                         <span class="text-xl">🌿</span>
-                        <h2 id="form-estoque-titulo" class="font-mystic text-lg font-semibold text-amber-200">Cadastrar Produto</h2>
+                        <h2 id="form-estoque-titulo" class="font-mystic text-base sm:text-lg font-semibold text-amber-200">Lançamento de Produtos em Estoque</h2>
                     </div>
                     <button type="button" id="btn-cancelar-edicao" onclick="limparFormEstoque()" class="hidden text-xs text-rose-400 hover:underline">
                         Cancelar
@@ -196,23 +206,32 @@
                 <form action="/estoque/salvar" method="POST" class="space-y-4">
                     <input type="hidden" name="produto_id" id="est_id">
 
+                    <div>
+                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Produto (Cadastro de Produtos)</label>
+                        <select name="produto" id="est_produto" onchange="selecionarProdutoCadastro()" required class="input-mystic capitalize w-full rounded-xl px-3.5 py-2.5 text-sm">
+                            <option value="" disabled selected>Selecione o produto cadastrado...</option>
+                            {% for c in cadastros %}
+                            <option value="{{ c.produto }}">{{ c.produto }}</option>
+                            {% endfor %}
+                        </select>
+                        {% if not cadastros %}
+                        <p class="text-[11px] text-amber-300/80 mt-1">
+                            * Nenhum item cadastrado. Acesse a aba <strong>Cadastro Produtos</strong> primeiro.
+                        </p>
+                        {% endif %}
+                    </div>
+
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Código</label>
-                            <input type="text" name="codigo" id="est_codigo" required placeholder="EX: FAD-01"
-                                   class="input-mystic uppercase w-full rounded-xl px-3.5 py-2.5 text-sm">
+                            <input type="text" name="codigo" id="est_codigo" readonly required placeholder="Automático"
+                                   class="input-mystic uppercase w-full rounded-xl px-3.5 py-2.5 text-sm bg-purple-950/30 text-amber-200/90 cursor-not-allowed">
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Quantidade</label>
-                            <input type="number" name="quantidade" id="est_quantidade" required min="0" placeholder="0"
+                            <input type="number" name="quantidade" id="est_quantidade" required min="1" placeholder="0"
                                    class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
                         </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Produto</label>
-                        <input type="text" name="produto" id="est_produto" oninput="capitalizarPrimeiraLetra(this)" required placeholder="Nome Do Produto"
-                               class="input-mystic capitalize w-full rounded-xl px-3.5 py-2.5 text-sm">
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -232,17 +251,17 @@
                     </div>
 
                     <button type="submit" id="btn-salvar-estoque" class="w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-amber-600 to-purple-700 hover:opacity-95 shadow-lg shadow-purple-900/40 transition">
-                        Salvar Produto
+                        Lançar no Estoque
                     </button>
                 </form>
             </div>
 
-            <!-- Tabela de Produtos no Estoque -->
+            <!-- Tabela de Produtos em Estoque -->
             <div class="lg:col-span-8 glass-card rounded-2xl p-6">
                 <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
-                    <h3 class="font-mystic text-lg font-semibold text-purple-200">Produtos em Estoque</h3>
+                    <h3 class="font-mystic text-lg font-semibold text-purple-200">Saldo Atual em Estoque</h3>
                     <span class="text-xs px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/40">
-                        {{ produtos|length }} cadastrados
+                        {{ produtos|length }} itens
                     </span>
                 </div>
 
@@ -273,11 +292,11 @@
                                 <td class="py-3 px-2 text-center">
                                     <div class="flex items-center justify-center gap-2">
                                         <button type="button" 
-                                                onclick='editarProduto({{ {"id": p.id, "codigo": p.codigo, "produto": p.produto, "quantidade": p.quantidade, "vl_custo": p.vl_custo|float, "vl_venda": p.vl_venda|float}|tojson }})'
+                                                onclick='editarProdutoEstoque({{ {"id": p.id, "codigo": p.codigo, "produto": p.produto, "quantidade": p.quantidade, "vl_custo": p.vl_custo|float, "vl_venda": p.vl_venda|float}|tojson }})'
                                                 class="px-2.5 py-1 rounded-lg text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30">
                                             Editar
                                         </button>
-                                        <form action="/estoque/excluir/{{ p.id }}" method="POST" onsubmit="return confirm('Excluir este produto do estoque?');" class="inline">
+                                        <form action="/estoque/excluir/{{ p.id }}" method="POST" onsubmit="return confirm('Excluir este lançamento do estoque?');" class="inline">
                                             <button type="submit" class="px-2.5 py-1 rounded-lg text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30">
                                                 Excluir
                                             </button>
@@ -287,7 +306,96 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="6" class="py-8 text-center text-purple-400/60 text-sm">Nenhum produto cadastrado no estoque.</td>
+                                <td colspan="6" class="py-8 text-center text-purple-400/60 text-sm">Nenhum produto lançado no estoque ainda.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================================= -->
+        <!-- SEÇÃO 3: CADASTRO DE PRODUTOS (TABELA cadastro_produtos)-->
+        <!-- ======================================================= -->
+        <section id="sec-cadastro" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Formulário de Cadastro de Produtos -->
+            <div class="lg:col-span-4 glass-card rounded-2xl p-6 h-fit">
+                <div class="flex items-center justify-between mb-5 border-b border-purple-800/40 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">📜</span>
+                        <h2 id="form-cadastro-titulo" class="font-mystic text-lg font-semibold text-amber-200">Cadastro de Produto</h2>
+                    </div>
+                    <button type="button" id="btn-cancelar-cadastro" onclick="limparFormCadastro()" class="hidden text-xs text-rose-400 hover:underline">
+                        Cancelar
+                    </button>
+                </div>
+
+                <form action="/cadastro-produtos/salvar" method="POST" class="space-y-4">
+                    <input type="hidden" name="cadastro_id" id="cad_id">
+
+                    <div>
+                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Código</label>
+                        <input type="text" name="codigo" id="cad_codigo" required placeholder="EX: FAD-01"
+                               class="input-mystic uppercase w-full rounded-xl px-3.5 py-2.5 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Produto</label>
+                        <input type="text" name="produto" id="cad_produto" oninput="capitalizarPrimeiraLetra(this)" required placeholder="Nome Do Produto"
+                               class="input-mystic capitalize w-full rounded-xl px-3.5 py-2.5 text-sm">
+                    </div>
+
+                    <button type="submit" id="btn-salvar-cadastro" class="w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 shadow-lg shadow-purple-900/40 transition">
+                        Salvar Cadastro
+                    </button>
+                </form>
+            </div>
+
+            <!-- Lista de Produtos Cadastrados -->
+            <div class="lg:col-span-8 glass-card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                    <h3 class="font-mystic text-lg font-semibold text-purple-200">Produtos Cadastrados</h3>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/40">
+                        {{ cadastros|length }} registros
+                    </span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
+                                <th class="py-2.5 px-2">ID</th>
+                                <th class="py-2.5 px-2">Código</th>
+                                <th class="py-2.5 px-2">Produto</th>
+                                <th class="py-2.5 px-2 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-purple-900/30 text-sm">
+                            {% for c in cadastros %}
+                            <tr class="hover:bg-purple-900/20 transition">
+                                <td class="py-3 px-2 text-xs text-slate-400">#{{ c.id }}</td>
+                                <td class="py-3 px-2 font-mono text-xs text-amber-300">{{ c.codigo }}</td>
+                                <td class="py-3 px-2 font-medium text-slate-200 capitalize">{{ c.produto }}</td>
+                                <td class="py-3 px-2 text-center">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <button type="button" 
+                                                onclick='editarCadastro({{ {"id": c.id, "codigo": c.codigo, "produto": c.produto}|tojson }})'
+                                                class="px-2.5 py-1 rounded-lg text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30">
+                                            Editar
+                                        </button>
+                                        <form action="/cadastro-produtos/excluir/{{ c.id }}" method="POST" onsubmit="return confirm('Excluir este produto do cadastro?');" class="inline">
+                                            <button type="submit" class="px-2.5 py-1 rounded-lg text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30">
+                                                Excluir
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="py-8 text-center text-purple-400/60 text-sm">Nenhum produto cadastrado ainda.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -300,10 +408,12 @@
 
     <!-- SCRIPTS DE AUTOMAÇÃO -->
     <script>
-        const catalogoProdutos = {{ produtos_json | tojson }};
+        const listaCadastros = {{ cadastros_json | tojson }};
+        const listaEstoque = {{ estoque_json | tojson }};
+        const abaInicial = "{{ aba_ativa }}";
 
-        // Preenche a data atual no dispositivo caso o navegador precise ajustar fuso horário local
         document.addEventListener("DOMContentLoaded", () => {
+            // Ajusta data atual no fuso local e foca no campo de data da venda
             const campoData = document.getElementById('venda_data');
             if (campoData) {
                 const hoje = new Date();
@@ -312,6 +422,9 @@
                 const dia = String(hoje.getDate()).padStart(2, '0');
                 campoData.value = `${ano}-${mes}-${dia}`;
             }
+
+            // Abre a aba correta após salvar/editar/excluir
+            switchTab(abaInicial || 'vendas');
         });
 
         // Força primeira letra maiúscula durante a digitação
@@ -322,31 +435,76 @@
         }
 
         function switchTab(tab) {
-            const secVendas = document.getElementById('sec-vendas');
-            const secEstoque = document.getElementById('sec-estoque');
-            const btnVendas = document.getElementById('tab-vendas');
-            const btnEstoque = document.getElementById('tab-estoque');
+            const secoes = {
+                vendas: document.getElementById('sec-vendas'),
+                estoque: document.getElementById('sec-estoque'),
+                cadastro: document.getElementById('sec-cadastro')
+            };
+            const botoes = {
+                vendas: document.getElementById('tab-vendas'),
+                estoque: document.getElementById('tab-estoque'),
+                cadastro: document.getElementById('tab-cadastro')
+            };
 
+            const classeAtiva = "px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap bg-purple-600 text-white shadow-lg shadow-purple-600/30 transition";
+            const classeInativa = "px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap bg-purple-950/60 text-purple-200 border border-purple-700/40 hover:bg-purple-900/50 transition";
+
+            Object.keys(secoes).forEach(chave => {
+                if (chave === tab) {
+                    secoes[chave].classList.remove('hidden');
+                    secoes[chave].classList.add('grid');
+                    botoes[chave].className = classeAtiva;
+                } else {
+                    secoes[chave].classList.add('hidden');
+                    secoes[chave].classList.remove('grid');
+                    botoes[chave].className = classeInativa;
+                }
+            });
+
+            // Coloca o campo data da venda em foco quando a aba Vendas estiver ativa
             if (tab === 'vendas') {
-                secVendas.classList.remove('hidden');
-                secVendas.classList.add('grid');
-                secEstoque.classList.add('hidden');
-                secEstoque.classList.remove('grid');
-
-                btnVendas.className = "px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white shadow-lg shadow-purple-600/30 transition";
-                btnEstoque.className = "px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-950/60 text-purple-200 border border-purple-700/40 hover:bg-purple-900/50 transition";
-            } else {
-                secEstoque.classList.remove('hidden');
-                secEstoque.classList.add('grid');
-                secVendas.classList.add('hidden');
-                secVendas.classList.remove('grid');
-
-                btnEstoque.className = "px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white shadow-lg shadow-purple-600/30 transition";
-                btnVendas.className = "px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-950/60 text-purple-200 border border-purple-700/40 hover:bg-purple-900/50 transition";
+                const campoData = document.getElementById('venda_data');
+                if (campoData) campoData.focus();
             }
         }
 
-        // Sugestão automática de 3x o valor de custo
+        // --- FUNÇÕES: CADASTRO DE PRODUTOS ---
+        function editarCadastro(item) {
+            document.getElementById('form-cadastro-titulo').innerText = "Editar Cadastro";
+            document.getElementById('cad_id').value = item.id;
+            document.getElementById('cad_codigo').value = item.codigo;
+            document.getElementById('cad_produto').value = item.produto;
+            document.getElementById('btn-salvar-cadastro').innerText = "Atualizar Cadastro";
+            document.getElementById('btn-cancelar-cadastro').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function limparFormCadastro() {
+            document.getElementById('form-cadastro-titulo').innerText = "Cadastro de Produto";
+            document.getElementById('cad_id').value = "";
+            document.getElementById('cad_codigo').value = "";
+            document.getElementById('cad_produto').value = "";
+            document.getElementById('btn-salvar-cadastro').innerText = "Salvar Cadastro";
+            document.getElementById('btn-cancelar-cadastro').classList.add('hidden');
+        }
+
+        // --- FUNÇÕES: LANÇAMENTO EM ESTOQUE ---
+        function selecionarProdutoCadastro() {
+            const nomeSelecionado = document.getElementById('est_produto').value;
+            const item = listaCadastros.find(c => c.produto === nomeSelecionado);
+
+            if (item) {
+                document.getElementById('est_codigo').value = item.codigo;
+
+                // Se o produto já tiver preço cadastrado no estoque, preenche como referência
+                const emEstoque = listaEstoque.find(e => e.codigo === item.codigo);
+                if (emEstoque && !document.getElementById('est_id').value) {
+                    document.getElementById('est_custo').value = emEstoque.vl_custo.toFixed(2);
+                    document.getElementById('est_venda').value = emEstoque.vl_venda.toFixed(2);
+                }
+            }
+        }
+
         function calcularPrecoSugerido() {
             const custo = parseFloat(document.getElementById('est_custo').value);
             if (!isNaN(custo)) {
@@ -356,42 +514,47 @@
             }
         }
 
-        function editarProduto(item) {
-            document.getElementById('form-estoque-titulo').innerText = "Editar Produto";
+        function editarProdutoEstoque(item) {
+            document.getElementById('form-estoque-titulo').innerText = "Editar Lançamento";
             document.getElementById('est_id').value = item.id;
-            document.getElementById('est_codigo').value = item.codigo;
             document.getElementById('est_produto').value = item.produto;
+            document.getElementById('est_codigo').value = item.codigo;
             document.getElementById('est_quantidade').value = item.quantidade;
             document.getElementById('est_custo').value = item.vl_custo.toFixed(2);
             document.getElementById('est_venda').value = item.vl_venda.toFixed(2);
             
-            document.getElementById('btn-salvar-estoque').innerText = "Atualizar Produto";
+            document.getElementById('btn-salvar-estoque').innerText = "Atualizar Estoque";
             document.getElementById('btn-cancelar-edicao').classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function limparFormEstoque() {
-            document.getElementById('form-estoque-titulo').innerText = "Cadastrar Produto";
+            document.getElementById('form-estoque-titulo').innerText = "Lançamento de Produtos em Estoque";
             document.getElementById('est_id').value = "";
-            document.getElementById('est_codigo').value = "";
             document.getElementById('est_produto').value = "";
+            document.getElementById('est_codigo').value = "";
             document.getElementById('est_quantidade').value = "";
             document.getElementById('est_custo').value = "";
             document.getElementById('est_venda').value = "";
             
-            document.getElementById('btn-salvar-estoque').innerText = "Salvar Produto";
+            document.getElementById('btn-salvar-estoque').innerText = "Lançar no Estoque";
             document.getElementById('btn-cancelar-edicao').classList.add('hidden');
         }
 
-        // Preenche código, vl_custo (oculto) e vl_venda ao selecionar o produto
+        // --- FUNÇÕES: VENDAS (VINCULADAS À TABELA ESTOQUE) ---
         function selecionarProdutoVenda() {
             const nomeSelecionado = document.getElementById('venda_produto').value;
-            const item = catalogoProdutos.find(p => p.produto === nomeSelecionado);
+            const item = listaEstoque.find(p => p.produto === nomeSelecionado);
 
             if (item) {
                 document.getElementById('venda_codigo').value = item.codigo;
+                document.getElementById('venda_estoque_disponivel').value = `${item.quantidade} un.`;
                 document.getElementById('venda_vl_custo').value = item.vl_custo.toFixed(2);
                 document.getElementById('venda_vl_venda').value = item.vl_venda.toFixed(2);
+                
+                // Limita a quantidade máxima da venda ao disponível em estoque (se > 0)
+                const campoQtd = document.getElementById('venda_quantidade');
+                campoQtd.max = item.quantidade > 0 ? item.quantidade : 1;
             }
         }
     </script>
