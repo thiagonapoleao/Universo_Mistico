@@ -1,1 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Empório Arcano • Estoque & Vendas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0b0914;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(124, 58, 237, 0.16) 0%, transparent 45%),
+                radial-gradient(circle at 85% 80%, rgba(16, 185, 129, 0.12) 0%, transparent 45%);
+            color: #e2e8f0;
+        }
+        .font-mystic { font-family: 'Cinzel', serif; }
+        .glass-card {
+            background: rgba(20, 17, 34, 0.88);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+        }
+        .input-mystic {
+            background-color: #130f22;
+            border: 1px solid rgba(139, 92, 246, 0.35);
+            color: #f8fafc;
+            transition: all 0.2s;
+        }
+        .input-mystic:focus {
+            outline: none;
+            border-color: #a78bfa;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
 
+    <!-- CABEÇALHO E LOGOTIPO -->
+    <header class="border-b border-purple-900/40 bg-[#0e0b1a]/90 sticky top-0 z-30 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <!-- LOCAL DO LOGOTIPO: Salve sua imagem em static/img/logo.png -->
+                <img src="/static/img/logo.png" 
+                     alt="Logotipo" 
+                     onerror="this.style.display='none'; document.getElementById('fallback-logo').style.display='flex';"
+                     class="h-12 w-12 object-contain rounded-lg border border-amber-400/30 p-1 bg-purple-950/40">
+                
+                <!-- Ícone alternativo exibido enquanto o arquivo static/img/logo.png não existir -->
+                <div id="fallback-logo" class="hidden h-12 w-12 items-center justify-center rounded-lg border border-amber-400/40 bg-purple-950/60 text-amber-300 text-2xl">
+                    ✦
+                </div>
+
+                <div>
+                    <h1 class="font-mystic text-lg sm:text-xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-purple-300 to-emerald-300">
+                        EMPÓRIO ARCANO
+                    </h1>
+                    <p class="text-xs text-purple-300/70">Grimório de Estoque & Vendas</p>
+                </div>
+            </div>
+
+            <!-- Abas de Navegação (Mobile & Desktop) -->
+            <div class="flex gap-2">
+                <button onclick="switchTab('vendas')" id="tab-vendas" class="px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white shadow-lg shadow-purple-600/30 transition">
+                    ✨ Vendas
+                </button>
+                <button onclick="switchTab('estoque')" id="tab-estoque" class="px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-950/60 text-purple-200 border border-purple-700/40 hover:bg-purple-900/50 transition">
+                    🔮 Estoque
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 pt-6 space-y-8">
+
+        <!-- ========================================== -->
+        <!-- SEÇÃO 1: FORMULÁRIO DE VENDAS              -->
+        <!-- ========================================== -->
+        <section id="sec-vendas" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Formulário de Lançamento de Venda -->
+            <div class="lg:col-span-5 glass-card rounded-2xl p-6 h-fit">
+                <div class="flex items-center gap-2 mb-5 border-b border-purple-800/40 pb-3">
+                    <span class="text-xl">🌙</span>
+                    <h2 class="font-mystic text-lg font-semibold text-amber-200">Registrar Venda</h2>
+                </div>
+
+                <form action="/vendas/registrar" method="POST" class="space-y-4">
+                    <!-- Campo oculto vl_custo preenchido automaticamente ao escolher o produto -->
+                    <input type="hidden" name="vl_custo" id="venda_vl_custo" value="0.00">
+
+                    <div>
+                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Produto (Estoque)</label>
+                        <select name="produto" id="venda_produto" onchange="selecionarProdutoVenda()" required class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
+                            <option value="" disabled selected>Selecione um produto...</option>
+                            {% for p in produtos %}
+                            <option value="{{ p.produto }}">{{ p.produto }} (Estoque: {{ p.quantidade }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Código</label>
+                            <input type="text" name="codigo" id="venda_codigo" readonly required placeholder="Automático"
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm bg-purple-950/30 text-amber-200/90 cursor-not-allowed">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Quantidade</label>
+                            <input type="number" name="quantidade" id="venda_quantidade" value="1" min="1" required
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">
+                            Valor de Venda (R$) <span class="text-[11px] text-emerald-400 normal-case">(Alterável)</span>
+                        </label>
+                        <input type="number" step="0.01" name="vl_venda" id="venda_vl_venda" required placeholder="0.00"
+                               class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-base font-semibold text-emerald-300">
+                    </div>
+
+                    <button type="submit" class="w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-purple-600 via-violet-600 to-emerald-600 hover:opacity-95 shadow-lg shadow-purple-700/30 transition transform active:scale-[0.99]">
+                        Lançar Venda
+                    </button>
+                </form>
+            </div>
+
+            <!-- Histórico de Vendas -->
+            <div class="lg:col-span-7 glass-card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                    <h3 class="font-mystic text-lg font-semibold text-purple-200">Últimas Vendas</h3>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-700/40">
+                        {{ vendas|length }} lançamentos
+                    </span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
+                                <th class="py-2.5 px-2">Cód.</th>
+                                <th class="py-2.5 px-2">Produto</th>
+                                <th class="py-2.5 px-2 text-center">Qtd</th>
+                                <th class="py-2.5 px-2 text-right">Vl. Venda</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-purple-900/30 text-sm">
+                            {% for v in vendas %}
+                            <tr class="hover:bg-purple-900/20 transition">
+                                <td class="py-3 px-2 font-mono text-xs text-amber-300/80">{{ v.codigo }}</td>
+                                <td class="py-3 px-2 font-medium text-slate-200">{{ v.produto }}</td>
+                                <td class="py-3 px-2 text-center">{{ v.quantidade }}</td>
+                                <td class="py-3 px-2 text-right font-semibold text-emerald-400">R$ {{ "%.2f"|format(v.vl_venda) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="py-8 text-center text-purple-400/60 text-sm">Nenhuma venda registrada ainda.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SEÇÃO 2: CADASTRO E GESTÃO DE ESTOQUE      -->
+        <!-- ========================================== -->
+        <section id="sec-estoque" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Formulário de Cadastro / Edição -->
+            <div class="lg:col-span-4 glass-card rounded-2xl p-6 h-fit">
+                <div class="flex items-center justify-between mb-5 border-b border-purple-800/40 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">🌿</span>
+                        <h2 id="form-estoque-titulo" class="font-mystic text-lg font-semibold text-amber-200">Cadastrar Produto</h2>
+                    </div>
+                    <button type="button" id="btn-cancelar-edicao" onclick="limparFormEstoque()" class="hidden text-xs text-rose-400 hover:underline">
+                        Cancelar
+                    </button>
+                </div>
+
+                <form action="/estoque/salvar" method="POST" class="space-y-4">
+                    <input type="hidden" name="produto_id" id="est_id">
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Código</label>
+                            <input type="text" name="codigo" id="est_codigo" required placeholder="EX: FAD-01"
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Quantidade</label>
+                            <input type="number" name="quantidade" id="est_quantidade" required min="0" placeholder="0"
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Produto</label>
+                        <input type="text" name="produto" id="est_produto" required placeholder="Nome do produto"
+                               class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Vl. Custo (R$)</label>
+                            <input type="number" step="0.01" name="vl_custo" id="est_custo" oninput="calcularPrecoSugerido()" required placeholder="0.00"
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">
+                                Vl. Venda <span class="text-[10px] text-amber-300">(Sug. 3x)</span>
+                            </label>
+                            <input type="number" step="0.01" name="vl_venda" id="est_venda" required placeholder="0.00"
+                                   class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm font-semibold text-emerald-300">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btn-salvar-estoque" class="w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-amber-600 to-purple-700 hover:opacity-95 shadow-lg shadow-purple-900/40 transition">
+                        Salvar Produto
+                    </button>
+                </form>
+            </div>
+
+            <!-- Tabela de Produtos no Estoque -->
+            <div class="lg:col-span-8 glass-card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                    <h3 class="font-mystic text-lg font-semibold text-purple-200">Produtos em Estoque</h3>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/40">
+                        {{ produtos|length }} cadastrados
+                    </span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
+                                <th class="py-2.5 px-2">Cód.</th>
+                                <th class="py-2.5 px-2">Produto</th>
+                                <th class="py-2.5 px-2 text-center">Qtd</th>
+                                <th class="py-2.5 px-2 text-right">Custo</th>
+                                <th class="py-2.5 px-2 text-right">Venda</th>
+                                <th class="py-2.5 px-2 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-purple-900/30 text-sm">
+                            {% for p in produtos %}
+                            <tr class="hover:bg-purple-900/20 transition">
+                                <td class="py-3 px-2 font-mono text-xs text-amber-300">{{ p.codigo }}</td>
+                                <td class="py-3 px-2 font-medium text-slate-200">{{ p.produto }}</td>
+                                <td class="py-3 px-2 text-center">
+                                    <span class="px-2 py-0.5 rounded-md text-xs font-semibold {{ 'bg-rose-950 text-rose-300 border border-rose-700/40' if p.quantidade <= 2 else 'bg-purple-950 text-purple-200' }}">
+                                        {{ p.quantidade }}
+                                    </span>
+                                </td>
+                                <td class="py-3 px-2 text-right text-slate-400">R$ {{ "%.2f"|format(p.vl_custo) }}</td>
+                                <td class="py-3 px-2 text-right font-semibold text-emerald-400">R$ {{ "%.2f"|format(p.vl_venda) }}</td>
+                                <td class="py-3 px-2 text-center">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <button type="button" 
+                                                onclick='editarProduto({{ {"id": p.id, "codigo": p.codigo, "produto": p.produto, "quantidade": p.quantidade, "vl_custo": p.vl_custo|float, "vl_venda": p.vl_venda|float}|tojson }})'
+                                                class="px-2.5 py-1 rounded-lg text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30">
+                                            Editar
+                                        </button>
+                                        <form action="/estoque/excluir/{{ p.id }}" method="POST" onsubmit="return confirm('Excluir este produto do estoque?');" class="inline">
+                                            <button type="submit" class="px-2.5 py-1 rounded-lg text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30">
+                                                Excluir
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="py-8 text-center text-purple-400/60 text-sm">Nenhum produto cadastrado no estoque.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SCRIPTS DE AUTOMAÇÃO -->
+    <script>
+        const catalogoProdutos = {{ produtos_json | tojson }};
+
+        function switchTab(tab) {
+            const secVendas = document.getElementById('sec-vendas');
+            const secEstoque = document.getElementById('sec-estoque');
+            const btnVendas = document.getElementById('tab-vendas');
+            const btnEstoque = document.getElementById('tab-estoque');
+
+            if (tab === 'vendas') {
+                secVendas.classList.remove('hidden');
+                secVendas.classList.add('grid');
+                secEstoque.classList.add('hidden');
+                secEstoque.classList.remove('grid');
+
+                btnVendas.className = "px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white shadow-lg shadow-purple-600/30 transition";
+                btnEstoque.className = "px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-950/60 text-purple-200 border border-purple-700/40 hover:bg-purple-900/50 transition";
+            } else {
+                secEstoque.classList.remove('hidden');
+                secEstoque.classList.add('grid');
+                secVendas.classList.add('hidden');
+                secVendas.classList.remove('grid');
+
+                btnEstoque.className = "px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white shadow-lg shadow-purple-600/30 transition";
+                btnVendas.className = "px-3.5 py-2 rounded-lg text-sm font-medium bg-purple-950/60 text-purple-200 border border-purple-700/40 hover:bg-purple-900/50 transition";
+            }
+        }
+
+        // Sugestão automática de 3x o valor de custo
+        function calcularPrecoSugerido() {
+            const custo = parseFloat(document.getElementById('est_custo').value);
+            if (!isNaN(custo)) {
+                document.getElementById('est_venda').value = (custo * 3).toFixed(2);
+            } else {
+                document.getElementById('est_venda').value = '';
+            }
+        }
+
+        function editarProduto(item) {
+            document.getElementById('form-estoque-titulo').innerText = "Editar Produto";
+            document.getElementById('est_id').value = item.id;
+            document.getElementById('est_codigo').value = item.codigo;
+            document.getElementById('est_produto').value = item.produto;
+            document.getElementById('est_quantidade').value = item.quantidade;
+            document.getElementById('est_custo').value = item.vl_custo.toFixed(2);
+            document.getElementById('est_venda').value = item.vl_venda.toFixed(2);
+            
+            document.getElementById('btn-salvar-estoque').innerText = "Atualizar Produto";
+            document.getElementById('btn-cancelar-edicao').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function limparFormEstoque() {
+            document.getElementById('form-estoque-titulo').innerText = "Cadastrar Produto";
+            document.getElementById('est_id').value = "";
+            document.getElementById('est_codigo').value = "";
+            document.getElementById('est_produto').value = "";
+            document.getElementById('est_quantidade').value = "";
+            document.getElementById('est_custo').value = "";
+            document.getElementById('est_venda').value = "";
+            
+            document.getElementById('btn-salvar-estoque').innerText = "Salvar Produto";
+            document.getElementById('btn-cancelar-edicao').classList.add('hidden');
+        }
+
+        // Preenche código, vl_custo (oculto) e vl_venda ao selecionar o produto
+        function selecionarProdutoVenda() {
+            const nomeSelecionado = document.getElementById('venda_produto').value;
+            const item = catalogoProdutos.find(p => p.produto === nomeSelecionado);
+
+            if (item) {
+                document.getElementById('venda_codigo').value = item.codigo;
+                document.getElementById('venda_vl_custo').value = item.vl_custo.toFixed(2);
+                document.getElementById('venda_vl_venda').value = item.vl_venda.toFixed(2);
+            }
+        }
+    </script>
+</body>
+</html>
