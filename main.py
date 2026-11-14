@@ -90,7 +90,11 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
         movimentacoes = db.query(MovimentacaoEstoque).order_by(MovimentacaoEstoque.id.desc()).limit(30).all()
         proximo_pedido = gerar_proximo_numero_pedido(db)
 
-        # Agrupa as vendas por n_pedido para exibição consolidada na tabela
+        # Totalizadores para a página de Consulta de Estoque
+        total_unidades_estoque = sum(p.quantidade for p in estoque_itens)
+        valor_total_venda_estoque = sum((Decimal(str(p.vl_venda)) * p.quantidade) for p in estoque_itens)
+
+        # Agrupa as vendas por n_pedido
         pedidos_agrupados = []
         mapa_pedidos = {}
         for v in vendas_raw:
@@ -142,6 +146,8 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
                 "movimentacoes": movimentacoes,
                 "cadastros_json": cadastros_json,
                 "estoque_json": estoque_json,
+                "total_unidades_estoque": total_unidades_estoque,
+                "valor_total_venda_estoque": valor_total_venda_estoque,
                 "data_hoje": date.today().isoformat(),
                 "proximo_pedido": proximo_pedido,
                 "aba_ativa": aba,
@@ -307,7 +313,6 @@ def registrar_venda(
         agora = datetime.now()
         data_final = data_parsed.replace(hour=agora.hour, minute=agora.minute, second=agora.second)
 
-        # Agrupa quantidades por código caso o mesmo item tenha sido adicionado duas vezes
         soma_por_codigo = {}
         for item in itens:
             cod = item["codigo"].strip().upper()
@@ -316,7 +321,6 @@ def registrar_venda(
                 return RedirectResponse(url="/?aba=vendas&erro=Quantidade+deve+ser+maior+que+zero", status_code=303)
             soma_por_codigo[cod] = soma_por_codigo.get(cod, 0) + qtd
 
-        # 1. Trava e valida o saldo de TODOS os itens do pedido antes de gravar qualquer coisa
         estoques_travados = {}
         for cod, qtd_total in soma_por_codigo.items():
             est = db.query(Estoque).filter(Estoque.codigo == cod).with_for_update().first()
@@ -329,7 +333,6 @@ def registrar_venda(
                 return RedirectResponse(url=f"/?aba=vendas&erro={quote(msg)}", status_code=303)
             estoques_travados[cod] = est
 
-        # 2. Grava cada item na tabela vendas com o mesmo n_pedido, baixa o estoque e registra no Kardex
         for item in itens:
             cod = item["codigo"].strip().upper()
             prod_fmt = formatar_titulo(item["produto"])
@@ -373,7 +376,6 @@ def registrar_venda(
         db.close()
     return RedirectResponse(url=f"/?aba=vendas&ok={quote(f'Pedido {pedido_fmt} registrado e estoque baixado!')}", status_code=303)
 
-# Estornar pedido completo (devolve todos os itens do n_pedido ao estoque)
 @app.post("/vendas/estornar-pedido/{n_pedido}")
 def estornar_pedido(n_pedido: str):
     db = SessionLocal()
