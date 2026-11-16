@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Universo Místico • Estoque & Vendas</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -40,7 +41,7 @@
 
     <!-- CABEÇALHO E LOGOTIPO -->
     <header class="border-b border-purple-900/40 bg-[#0e0b1a]/90 sticky top-0 z-30 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div class="flex items-center gap-3">
                 <img src="/static/img/logo.png" 
                      alt="Logotipo Universo Místico" 
@@ -60,9 +61,12 @@
             </div>
 
             <!-- Abas de Navegação -->
-            <nav class="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+            <nav class="flex gap-1.5 overflow-x-auto pb-1 lg:pb-0">
                 <button onclick="switchTab('vendas')" id="tab-vendas" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition">
                     ✨ Vendas
+                </button>
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition">
+                    📊 Dashboard
                 </button>
                 <button onclick="switchTab('catalogo')" id="tab-catalogo" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition">
                     💎 Lista Estoque
@@ -95,7 +99,7 @@
         {% endif %}
 
         <!-- ======================================================= -->
-        <!-- SEÇÃO 1: VENDAS (MULTI-PRODUTOS POR PEDIDO + TOTAL)     -->
+        <!-- SEÇÃO 1: VENDAS (MULTI-PRODUTOS + TOTAL PEDIDO & GERAL) -->
         <!-- ======================================================= -->
         <section id="sec-vendas" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
@@ -174,7 +178,8 @@
                         <span>＋</span> Adicionar Item ao Pedido
                     </button>
 
-                    <div class="rounded-xl bg-[#110d1f] border border-purple-800/40 p-3 space-y-2">
+                    <!-- Resumo do Pedido Atual (Carrinho) -->
+                    <div class="rounded-xl bg-[#110d1f] border border-purple-800/40 p-3.5 space-y-2">
                         <div class="flex items-center justify-between text-xs text-purple-300 uppercase tracking-wider border-b border-purple-900/50 pb-1.5">
                             <span>Itens do Pedido</span>
                             <span id="contador_itens_pedido">0 itens</span>
@@ -196,70 +201,215 @@
                 </form>
             </div>
 
-            <div class="lg:col-span-7 glass-card rounded-2xl p-6">
-                <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
-                    <h3 class="font-mystic text-lg font-semibold text-purple-200">Últimos Pedidos</h3>
-                    <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-700/40">
-                        {{ pedidos|length }} pedidos
-                    </span>
+            <!-- Coluna Direita: Total Geral das Vendas + Histórico de Pedidos -->
+            <div class="lg:col-span-7 space-y-4">
+                
+                <div class="glass-card rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-emerald-500/30">
+                    <div class="flex items-center gap-3">
+                        <div class="h-11 w-11 rounded-xl bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-xl">
+                            💰
+                        </div>
+                        <div>
+                            <p class="text-xs text-purple-300/80 uppercase tracking-wider">Valor Total das Vendas (Concluídas)</p>
+                            <p class="text-2xl font-bold text-emerald-400">R$ {{ "%.2f"|format(valor_total_vendas_geral) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 text-xs">
+                        <div class="px-3 py-2 rounded-xl bg-[#130f22] border border-purple-800/40 text-center">
+                            <span class="block text-purple-400">Pedidos Ativos</span>
+                            <span class="font-bold text-amber-200 text-sm">{{ qtd_pedidos_concluidos }}</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="space-y-3">
-                    {% for ped in pedidos %}
-                    <div class="rounded-xl bg-[#130f22]/90 border border-purple-800/40 p-4 {{ 'opacity-55' if ped.status == 'CANCELADA' else '' }}">
-                        <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-purple-900/40">
-                            <div class="flex items-center gap-2.5">
-                                <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                    {{ ped.n_pedido }}
-                                </span>
-                                <span class="text-xs text-purple-300/80">
-                                    {{ ped.data_venda.strftime('%d/%m/%Y %H:%M') if ped.data_venda else '-' }}
-                                </span>
-                            </div>
-
-                            <div class="flex items-center gap-3">
-                                <span class="text-sm font-bold text-emerald-400">
-                                    Total: R$ {{ "%.2f"|format(ped.total_pedido) }}
-                                </span>
-
-                                {% if ped.status == 'CANCELADA' %}
-                                    <span class="px-2 py-0.5 rounded text-[11px] bg-rose-950 text-rose-300 border border-rose-700/40">Estornado</span>
-                                {% else %}
-                                    <form action="/vendas/estornar-pedido/{{ ped.n_pedido }}" method="POST" onsubmit="return confirm('Estornar o pedido {{ ped.n_pedido }} completo e devolver todos os itens ao estoque?');" class="inline">
-                                        <button type="submit" class="px-2.5 py-1 rounded-lg text-[11px] bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 transition">
-                                            Estornar Pedido
-                                        </button>
-                                    </form>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <ul class="mt-2.5 space-y-1.5 text-xs">
-                            {% for item in ped.itens %}
-                            <li class="flex items-center justify-between text-slate-300">
-                                <span>
-                                    <span class="font-mono text-amber-300/70">[{{ item.codigo }}]</span>
-                                    <span class="capitalize font-medium {{ 'line-through' if ped.status == 'CANCELADA' else '' }}">{{ item.produto }}</span>
-                                    <span class="text-purple-300">× {{ item.quantidade }} un.</span>
-                                </span>
-                                <span class="text-slate-400">R$ {{ "%.2f"|format(item.subtotal) }}</span>
-                            </li>
-                            {% endfor %}
-                        </ul>
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                        <h3 class="font-mystic text-lg font-semibold text-purple-200">Últimos Pedidos</h3>
+                        <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-700/40">
+                            {{ pedidos|length }} registros
+                        </span>
                     </div>
-                    {% else %}
-                    <div class="py-10 text-center text-purple-400/60 text-sm">Nenhum pedido registrado ainda.</div>
-                    {% endfor %}
+
+                    <div class="space-y-3">
+                        {% for ped in pedidos %}
+                        <div class="rounded-xl bg-[#130f22]/90 border border-purple-800/40 p-4 {{ 'opacity-55' if ped.status == 'CANCELADA' else '' }}">
+                            <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-purple-900/40">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                        {{ ped.n_pedido }}
+                                    </span>
+                                    <span class="text-xs text-purple-300/80">
+                                        {{ ped.data_venda.strftime('%d/%m/%Y %H:%M') if ped.data_venda else '-' }}
+                                    </span>
+                                </div>
+
+                                <div class="flex items-center gap-3">
+                                    <span class="text-sm font-bold text-emerald-400">
+                                        Pedido: R$ {{ "%.2f"|format(ped.total_pedido) }}
+                                    </span>
+
+                                    {% if ped.status == 'CANCELADA' %}
+                                        <span class="px-2 py-0.5 rounded text-[11px] bg-rose-950 text-rose-300 border border-rose-700/40">Estornado</span>
+                                    {% else %}
+                                        <form action="/vendas/estornar-pedido/{{ ped.n_pedido }}" method="POST" onsubmit="return confirm('Estornar o pedido {{ ped.n_pedido }} completo e devolver todos os itens ao estoque?');" class="inline">
+                                            <button type="submit" class="px-2.5 py-1 rounded-lg text-[11px] bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 transition">
+                                                Estornar
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <ul class="mt-2.5 space-y-1.5 text-xs">
+                                {% for item in ped.itens %}
+                                <li class="flex items-center justify-between text-slate-300">
+                                    <span>
+                                        <span class="font-mono text-amber-300/70">[{{ item.codigo }}]</span>
+                                        <span class="capitalize font-medium {{ 'line-through' if ped.status == 'CANCELADA' else '' }}">{{ item.produto }}</span>
+                                        <span class="text-purple-300">× {{ item.quantidade }} un.</span>
+                                    </span>
+                                    <span class="text-slate-400">R$ {{ "%.2f"|format(item.subtotal) }}</span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% else %}
+                        <div class="py-10 text-center text-purple-400/60 text-sm">Nenhum pedido registrado ainda.</div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- ======================================================= -->
-        <!-- SEÇÃO NOVA: LISTA DE PRODUTOS EM ESTOQUE (CONSULTA)     -->
+        <!-- SEÇÃO 2: DASHBOARD ANALÍTICO (GRÁFICOS + RESUMOS)       -->
+        <!-- ======================================================= -->
+        <section id="sec-dashboard" class="hidden flex-col space-y-6">
+            
+            <div class="glass-card rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-mystic text-lg sm:text-xl font-bold text-amber-200 flex items-center gap-2">
+                        <span>📊</span> Oráculo de Vendas (Dashboard)
+                    </h2>
+                    <p class="text-xs text-purple-300/70">Acompanhamento dinâmico de faturamento, quantidades e produtos mais vendidos</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                    <div>
+                        <label class="block text-[10px] font-medium text-purple-300 uppercase tracking-wider mb-1">Mês em Foco</label>
+                        <input type="month" id="dash_filtro_mes" value="{{ mes_atual }}" onchange="atualizarDashboard()"
+                               class="input-mystic rounded-xl px-3 py-2 text-sm ring-1 ring-purple-500/40">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-medium text-purple-300 uppercase tracking-wider mb-1">Dia em Foco</label>
+                        <input type="date" id="dash_filtro_dia" value="{{ data_hoje }}" onchange="atualizarDashboard()"
+                               class="input-mystic rounded-xl px-3 py-2 text-sm ring-1 ring-amber-500/40">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Faturamento no Mês</p>
+                    <p id="kpi_mes_valor" class="text-xl sm:text-2xl font-bold text-emerald-400 mt-1">R$ 0,00</p>
+                    <p id="kpi_mes_qtd" class="text-xs text-purple-300 mt-1">0 unidades vendidas</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Lucro Bruto no Mês</p>
+                    <p id="kpi_mes_lucro" class="text-xl sm:text-2xl font-bold text-amber-300 mt-1">R$ 0,00</p>
+                    <p class="text-xs text-purple-300/70 mt-1">Venda − Custo</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Faturamento no Dia</p>
+                    <p id="kpi_dia_valor" class="text-xl sm:text-2xl font-bold text-emerald-400 mt-1">R$ 0,00</p>
+                    <p id="kpi_dia_qtd" class="text-xs text-purple-300 mt-1">0 unidades vendidas</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-4">
+                    <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Lucro Bruto no Dia</p>
+                    <p id="kpi_dia_lucro" class="text-xl sm:text-2xl font-bold text-amber-300 mt-1">R$ 0,00</p>
+                    <p class="text-xs text-purple-300/70 mt-1">Dia selecionado</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                        <h3 class="font-mystic text-base font-semibold text-amber-200">Vendas por Mês (Valores & Qtd)</h3>
+                        <span id="label_ano_grafico" class="text-xs px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/40">2026</span>
+                    </div>
+                    <div class="relative h-64 w-full">
+                        <canvas id="graficoMensal"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                        <h3 class="font-mystic text-base font-semibold text-amber-200">Vendas por Dia (Valores & Qtd)</h3>
+                        <span id="label_mes_grafico" class="text-xs px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/40">Mês em foco</span>
+                    </div>
+                    <div class="relative h-64 w-full">
+                        <canvas id="graficoDiario"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                        <h3 class="font-mystic text-base font-semibold text-purple-200">Produtos Vendidos no Mês</h3>
+                        <span id="badge_resumo_mes" class="text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/40">0 itens</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                            <thead>
+                                <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
+                                    <th class="py-2 px-2">Produto</th>
+                                    <th class="py-2 px-2 text-center">Qtd</th>
+                                    <th class="py-2 px-2 text-right">Total Venda</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela_resumo_mes" class="divide-y divide-purple-900/30">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
+                        <h3 class="font-mystic text-base font-semibold text-purple-200">Produtos Vendidos no Dia</h3>
+                        <span id="badge_resumo_dia" class="text-xs px-2.5 py-1 rounded-full bg-amber-950 text-amber-300 border border-amber-700/40">0 itens</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                            <thead>
+                                <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
+                                    <th class="py-2 px-2">Produto</th>
+                                    <th class="py-2 px-2 text-center">Qtd</th>
+                                    <th class="py-2 px-2 text-right">Total Venda</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela_resumo_dia" class="divide-y divide-purple-900/30">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================================= -->
+        <!-- SEÇÃO 3: LISTA DE PRODUTOS EM ESTOQUE (CONSULTA)        -->
         <!-- ======================================================= -->
         <section id="sec-catalogo" class="hidden flex-col space-y-6">
             
-            <!-- Resumo Rápido -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div class="glass-card rounded-2xl p-4 flex items-center justify-between">
                     <div>
@@ -286,7 +436,6 @@
                 </div>
             </div>
 
-            <!-- Painel Principal da Lista -->
             <div class="glass-card rounded-2xl p-6">
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-purple-800/40 pb-4">
                     <div class="flex items-center gap-2">
@@ -294,7 +443,6 @@
                         <h2 class="font-mystic text-lg sm:text-xl font-semibold text-amber-200">Lista de Produtos em Estoque</h2>
                     </div>
 
-                    <!-- Busca e Filtros -->
                     <div class="flex flex-col sm:flex-row gap-2.5">
                         <input type="text" id="busca_catalogo" oninput="filtrarCatalogo()" placeholder="Buscar produto ou código..."
                                class="input-mystic rounded-xl px-3.5 py-2 text-sm w-full sm:w-64">
@@ -307,7 +455,7 @@
                     </div>
                 </div>
 
-                <!-- Visualização Mobile (Cards) -->
+                <!-- Mobile Cards -->
                 <div id="catalogo_cards_mobile" class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
                     {% for p in produtos %}
                     <div class="item-catalogo rounded-xl bg-[#130f22] border border-purple-800/40 p-4 flex flex-col justify-between gap-3"
@@ -336,7 +484,7 @@
                     {% endfor %}
                 </div>
 
-                <!-- Visualização Desktop (Tabela Limpa) -->
+                <!-- Desktop Table -->
                 <div class="hidden md:block overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -394,12 +542,12 @@
         </section>
 
         <!-- ======================================================= -->
-        <!-- SEÇÃO 3: LANÇAMENTO DE PRODUTOS EM ESTOQUE + KARDEX     -->
+        <!-- SEÇÃO 4: LANÇAMENTO E AJUSTE DE ESTOQUE (PERDA/QUEBRA)  -->
         <!-- ======================================================= -->
         <section id="sec-estoque" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
             
             <div class="lg:col-span-4 glass-card rounded-2xl p-6 h-fit">
-                <div class="flex items-center justify-between mb-5 border-b border-purple-800/40 pb-3">
+                <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
                     <div class="flex items-center gap-2">
                         <span class="text-xl">🌿</span>
                         <h2 id="form-estoque-titulo" class="font-mystic text-base sm:text-lg font-semibold text-amber-200">Lançamento de Produtos em Estoque</h2>
@@ -409,8 +557,20 @@
                     </button>
                 </div>
 
+                <div id="seletor_modo_estoque" class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#110d1f] border border-purple-800/40 mb-4">
+                    <button type="button" id="btn_modo_entrada" onclick="alternarModoEstoque('ENTRADA')"
+                            class="py-2 px-2 rounded-lg text-xs font-semibold bg-emerald-600/80 text-white shadow transition">
+                        ＋ Entrada Mercadoria
+                    </button>
+                    <button type="button" id="btn_modo_ajuste" onclick="alternarModoEstoque('AJUSTE_BAIXA')"
+                            class="py-2 px-2 rounded-lg text-xs font-medium text-purple-300 hover:text-rose-200 transition">
+                        ⚠️ Perda / Quebra
+                    </button>
+                </div>
+
                 <form action="/estoque/salvar" method="POST" class="space-y-4">
                     <input type="hidden" name="produto_id" id="est_id">
+                    <input type="hidden" name="tipo_operacao" id="est_tipo_operacao" value="ENTRADA">
 
                     <div>
                         <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Produto (Cadastro de Produtos)</label>
@@ -429,13 +589,13 @@
                                    class="input-mystic uppercase w-full rounded-xl px-3.5 py-2.5 text-sm bg-purple-950/30 text-amber-200/90 cursor-not-allowed">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Quantidade</label>
+                            <label id="label_est_quantidade" class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Qtd. Entrada</label>
                             <input type="number" name="quantidade" id="est_quantidade" required min="1" placeholder="0"
                                    class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm">
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div id="bloco_precos_estoque" class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Vl. Custo (R$)</label>
                             <input type="number" step="0.01" name="vl_custo" id="est_custo" oninput="calcularPrecoSugerido()" required placeholder="0.00"
@@ -449,6 +609,19 @@
                             <input type="number" step="0.01" name="vl_venda" id="est_venda" required placeholder="0.00"
                                    class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm font-semibold text-emerald-300">
                         </div>
+                    </div>
+
+                    <div id="bloco_motivo_ajuste" class="hidden space-y-2">
+                        <label class="block text-xs font-medium text-rose-300 uppercase tracking-wider mb-1">Motivo da Baixa / Ajuste</label>
+                        <select id="select_motivo_rapido" onchange="document.getElementById('est_motivo_ajuste').value = this.value" class="input-mystic w-full rounded-xl px-3.5 py-2 text-sm">
+                            <option value="Quebra / Avaria">Quebra / Avaria</option>
+                            <option value="Perda / Extravio">Perda / Extravio</option>
+                            <option value="Vencimento">Vencimento</option>
+                            <option value="Bonificação / Brinde">Bonificação / Brinde</option>
+                            <option value="Acerto de Inventário">Acerto de Inventário</option>
+                        </select>
+                        <input type="text" name="motivo_ajuste" id="est_motivo_ajuste" value="Quebra / Avaria" oninput="capitalizarPrimeiraLetra(this)" placeholder="Detalhe o motivo..."
+                               class="input-mystic capitalize w-full rounded-xl px-3.5 py-2 text-sm">
                     </div>
 
                     <button type="submit" id="btn-salvar-estoque" class="w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-amber-600 to-purple-700 hover:opacity-95 shadow-lg shadow-purple-900/40 transition">
@@ -519,7 +692,7 @@
                 <div class="glass-card rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
                         <h3 class="font-mystic text-base font-semibold text-purple-200">Histórico de Movimentações (Auditoria)</h3>
-                        <span class="text-xs text-purple-400">Últimas 30 operações</span>
+                        <span class="text-xs text-purple-400">Últimas 40 operações</span>
                     </div>
 
                     <div class="overflow-x-auto">
@@ -527,7 +700,7 @@
                             <thead>
                                 <tr class="border-b border-purple-800/40 text-purple-300 uppercase">
                                     <th class="py-2 px-2">Data/Hora</th>
-                                    <th class="py-2 px-2">Tipo</th>
+                                    <th class="py-2 px-2">Tipo / Motivo</th>
                                     <th class="py-2 px-2">Produto</th>
                                     <th class="py-2 px-2 text-center">Mov.</th>
                                     <th class="py-2 px-2 text-center">Saldo Final</th>
@@ -539,13 +712,15 @@
                                     <td class="py-2 px-2 text-slate-400">{{ m.data_movimentacao.strftime('%d/%m %H:%M') if m.data_movimentacao else '-' }}</td>
                                     <td class="py-2 px-2">
                                         {% if m.tipo == 'SAIDA_VENDA' %}
-                                            <span class="px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200">Venda</span>
+                                            <span class="px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-200">{{ m.motivo or 'Venda' }}</span>
                                         {% elif m.tipo == 'ENTRADA' %}
                                             <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300">Entrada</span>
+                                        {% elif m.tipo == 'PERDA_QUEBRA' %}
+                                            <span class="px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-700/40">⚠️ {{ m.motivo or 'Perda/Quebra' }}</span>
                                         {% elif m.tipo == 'ESTORNO_VENDA' %}
-                                            <span class="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300">Estorno</span>
+                                            <span class="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300">{{ m.motivo or 'Estorno' }}</span>
                                         {% else %}
-                                            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">Ajuste</span>
+                                            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">{{ m.motivo or 'Ajuste' }}</span>
                                         {% endif %}
                                     </td>
                                     <td class="py-2 px-2 text-slate-200 capitalize">{{ m.produto }}</td>
@@ -567,7 +742,7 @@
         </section>
 
         <!-- ======================================================= -->
-        <!-- SEÇÃO 4: CADASTRO DE PRODUTOS (TABELA cadastro_produtos)-->
+        <!-- SEÇÃO 5: CADASTRO DE PRODUTOS (CÓDIGO AUTOMÁTICO XXX-00)-->
         <!-- ======================================================= -->
         <section id="sec-cadastro" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
             
@@ -584,17 +759,20 @@
 
                 <form action="/cadastro-produtos/salvar" method="POST" class="space-y-4">
                     <input type="hidden" name="cadastro_id" id="cad_id">
-
-                    <div>
-                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Código</label>
-                        <input type="text" name="codigo" id="cad_codigo" required placeholder="EX: FAD-01"
-                               class="input-mystic uppercase w-full rounded-xl px-3.5 py-2.5 text-sm">
-                    </div>
+                    <input type="hidden" id="cad_seq_atual" value="{{ proxima_seq_cadastro }}">
 
                     <div>
                         <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Produto</label>
-                        <input type="text" name="produto" id="cad_produto" oninput="capitalizarPrimeiraLetra(this)" required placeholder="Nome Do Produto"
+                        <input type="text" name="produto" id="cad_produto" oninput="aoDigitarNomeCadastro(this)" required placeholder="Digite o nome do produto..."
                                class="input-mystic capitalize w-full rounded-xl px-3.5 py-2.5 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">
+                            Código Gerado <span class="text-[10px] text-amber-300 normal-case">(Automático XXX-00)</span>
+                        </label>
+                        <input type="text" name="codigo" id="cad_codigo" readonly required placeholder="XXX-{{ '%02d'|format(proxima_seq_cadastro) }}"
+                               class="input-mystic uppercase font-mono font-bold w-full rounded-xl px-3.5 py-2.5 text-sm bg-purple-950/30 text-amber-300 cursor-not-allowed">
                     </div>
 
                     <button type="submit" id="btn-salvar-cadastro" class="w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 shadow-lg shadow-purple-900/40 transition">
@@ -655,26 +833,42 @@
 
     </main>
 
-    <!-- SCRIPTS DE AUTOMAÇÃO -->
+    <!-- SCRIPTS DE AUTOMAÇÃO E GRÁFICOS -->
     <script>
         const listaCadastros = {{ cadastros_json | tojson }};
         const listaEstoque = {{ estoque_json | tojson }};
+        const dadosVendasDashboard = {{ vendas_dashboard_json | tojson }};
+        const proximaSequenciaCadastro = {{ proxima_seq_cadastro }};
         const abaInicial = "{{ aba_ativa }}";
         
         let itensPedido = [];
         let saldoAtualSelecionado = 0;
+        let chartMensalInstance = null;
+        let chartDiarioInstance = null;
 
         document.addEventListener("DOMContentLoaded", () => {
-            const campoData = document.getElementById('venda_data');
-            if (campoData) {
-                const hoje = new Date();
-                const ano = hoje.getFullYear();
-                const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-                const dia = String(hoje.getDate()).padStart(2, '0');
-                campoData.value = `${ano}-${mes}-${dia}`;
-            }
+            const hoje = new Date();
+            const ano = hoje.getFullYear();
+            const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+            const dia = String(hoje.getDate()).padStart(2, '0');
+            
+            const dataHojeLocal = `${ano}-${mes}-${dia}`;
+            const mesAtualLocal = `${ano}-${mes}`;
+
+            const campoDataVenda = document.getElementById('venda_data');
+            if (campoDataVenda) campoDataVenda.value = dataHojeLocal;
+
+            const dashMes = document.getElementById('dash_filtro_mes');
+            const dashDia = document.getElementById('dash_filtro_dia');
+            if (dashMes) dashMes.value = mesAtualLocal;
+            if (dashDia) dashDia.value = dataHojeLocal;
+
             switchTab(abaInicial || 'vendas');
         });
+
+        function formatarMoeda(valor) {
+            return `R$ ${Number(valor || 0).toFixed(2).replace('.', ',')}`;
+        }
 
         function capitalizarPrimeiraLetra(input) {
             const pos = input.selectionStart;
@@ -682,15 +876,36 @@
             input.setSelectionRange(pos, pos);
         }
 
+        // Gera código automático padronizado XXX-00 a partir do nome do produto
+        function gerarCodigoPadrao(nomeProduto, sequencia) {
+            const semAcento = nomeProduto
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^A-Za-z]/g, "")
+                .toUpperCase();
+            if (!semAcento) return "";
+            const prefixo = (semAcento + "PRD").substring(0, 3);
+            const seqFormatada = String(sequencia).padStart(2, '0');
+            return `${prefixo}-${seqFormatada}`;
+        }
+
+        function aoDigitarNomeCadastro(input) {
+            capitalizarPrimeiraLetra(input);
+            const seq = parseInt(document.getElementById('cad_seq_atual').value) || proximaSequenciaCadastro;
+            document.getElementById('cad_codigo').value = gerarCodigoPadrao(input.value, seq);
+        }
+
         function switchTab(tab) {
             const secoes = {
                 vendas: document.getElementById('sec-vendas'),
+                dashboard: document.getElementById('sec-dashboard'),
                 catalogo: document.getElementById('sec-catalogo'),
                 estoque: document.getElementById('sec-estoque'),
                 cadastro: document.getElementById('sec-cadastro')
             };
             const botoes = {
                 vendas: document.getElementById('tab-vendas'),
+                dashboard: document.getElementById('tab-dashboard'),
                 catalogo: document.getElementById('tab-catalogo'),
                 estoque: document.getElementById('tab-estoque'),
                 cadastro: document.getElementById('tab-cadastro')
@@ -703,7 +918,7 @@
                 if (!secoes[chave]) return;
                 if (chave === tab) {
                     secoes[chave].classList.remove('hidden');
-                    secoes[chave].classList.add(chave === 'catalogo' ? 'flex' : 'grid');
+                    secoes[chave].classList.add((chave === 'catalogo' || chave === 'dashboard') ? 'flex' : 'grid');
                     botoes[chave].className = classeAtiva;
                 } else {
                     secoes[chave].classList.add('hidden');
@@ -715,13 +930,241 @@
             if (tab === 'vendas') {
                 const campoData = document.getElementById('venda_data');
                 if (campoData) campoData.focus();
+            } else if (tab === 'dashboard') {
+                atualizarDashboard();
             } else if (tab === 'catalogo') {
                 const campoBusca = document.getElementById('busca_catalogo');
                 if (campoBusca) campoBusca.focus();
+            } else if (tab === 'cadastro') {
+                const campoProd = document.getElementById('cad_produto');
+                if (campoProd) campoProd.focus();
             }
         }
 
-        // --- FILTRO DA PÁGINA LISTA DE PRODUTOS EM ESTOQUE ---
+        // =======================================================
+        // DASHBOARD ANALÍTICO (GRÁFICOS & RESUMOS DINÂMICOS)
+        // =======================================================
+        function atualizarDashboard() {
+            const mesSelecionado = document.getElementById('dash_filtro_mes').value;
+            const diaSelecionado = document.getElementById('dash_filtro_dia').value;
+            if (!mesSelecionado || !diaSelecionado) return;
+
+            const [anoStr, mesStr] = mesSelecionado.split('-');
+            document.getElementById('label_ano_grafico').innerText = `Ano ${anoStr}`;
+            document.getElementById('label_mes_grafico').innerText = `${mesStr}/${anoStr}`;
+
+            const vendasNoMes = dadosVendasDashboard.filter(v => v.mes_iso === mesSelecionado);
+            const vendasNoDia = dadosVendasDashboard.filter(v => v.data_iso === diaSelecionado);
+
+            const totalMesValor = vendasNoMes.reduce((acc, v) => acc + v.subtotal, 0);
+            const totalMesQtd = vendasNoMes.reduce((acc, v) => acc + v.quantidade, 0);
+            const totalMesLucro = vendasNoMes.reduce((acc, v) => acc + v.lucro, 0);
+
+            const totalDiaValor = vendasNoDia.reduce((acc, v) => acc + v.subtotal, 0);
+            const totalDiaQtd = vendasNoDia.reduce((acc, v) => acc + v.quantidade, 0);
+            const totalDiaLucro = vendasNoDia.reduce((acc, v) => acc + v.lucro, 0);
+
+            document.getElementById('kpi_mes_valor').innerText = formatarMoeda(totalMesValor);
+            document.getElementById('kpi_mes_qtd').innerText = `${totalMesQtd} unidades vendidas`;
+            document.getElementById('kpi_mes_lucro').innerText = formatarMoeda(totalMesLucro);
+
+            document.getElementById('kpi_dia_valor').innerText = formatarMoeda(totalDiaValor);
+            document.getElementById('kpi_dia_qtd').innerText = `${totalDiaQtd} unidades vendidas`;
+            document.getElementById('kpi_dia_lucro').innerText = formatarMoeda(totalDiaLucro);
+
+            renderizarTabelaResumoProdutos(vendasNoMes, 'tabela_resumo_mes', 'badge_resumo_mes', 'Nenhuma venda registrada neste mês.');
+            renderizarTabelaResumoProdutos(vendasNoDia, 'tabela_resumo_dia', 'badge_resumo_dia', 'Nenhuma venda registrada neste dia.');
+
+            renderizarGraficoMensal(anoStr, mesSelecionado);
+            renderizarGraficoDiario(mesSelecionado, diaSelecionado);
+        }
+
+        function renderizarTabelaResumoProdutos(listaVendas, tbodyId, badgeId, msgVazio) {
+            const tbody = document.getElementById(tbodyId);
+            const badge = document.getElementById(badgeId);
+
+            const mapa = {};
+            listaVendas.forEach(v => {
+                if (!mapa[v.codigo]) {
+                    mapa[v.codigo] = { codigo: v.codigo, produto: v.produto, qtd: 0, total: 0 };
+                }
+                mapa[v.codigo].qtd += v.quantidade;
+                mapa[v.codigo].total += v.subtotal;
+            });
+
+            const ranking = Object.values(mapa).sort((a, b) => b.total - a.total);
+            badge.innerText = `${ranking.length} ${ranking.length === 1 ? 'produto' : 'produtos'}`;
+
+            if (ranking.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="py-6 text-center text-purple-400/60 text-xs">${msgVazio}</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = ranking.map(item => `
+                <tr class="hover:bg-purple-900/20">
+                    <td class="py-2.5 px-2">
+                        <span class="font-medium text-slate-200 capitalize block">${item.produto}</span>
+                        <span class="font-mono text-[10px] text-amber-300/70">${item.codigo}</span>
+                    </td>
+                    <td class="py-2.5 px-2 text-center font-semibold text-purple-200">${item.qtd} un.</td>
+                    <td class="py-2.5 px-2 text-right font-bold text-emerald-400">${formatarMoeda(item.total)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderizarGraficoMensal(anoStr, mesFoco) {
+            const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const valoresPorMes = Array(12).fill(0);
+            const qtdPorMes = Array(12).fill(0);
+            const coresBarras = Array(12).fill('rgba(139, 92, 246, 0.45)');
+
+            const mesFocoIdx = parseInt(mesFoco.split('-')[1], 10) - 1;
+            if (mesFocoIdx >= 0 && mesFocoIdx < 12) {
+                coresBarras[mesFocoIdx] = 'rgba(16, 185, 129, 0.9)';
+            }
+
+            dadosVendasDashboard.forEach(v => {
+                if (v.mes_iso.startsWith(anoStr + '-')) {
+                    const idx = parseInt(v.mes_iso.split('-')[1], 10) - 1;
+                    if (idx >= 0 && idx < 12) {
+                        valoresPorMes[idx] += v.subtotal;
+                        qtdPorMes[idx] += v.quantidade;
+                    }
+                }
+            });
+
+            const ctx = document.getElementById('graficoMensal').getContext('2d');
+            if (chartMensalInstance) chartMensalInstance.destroy();
+
+            chartMensalInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: nomesMeses,
+                    datasets: [
+                        {
+                            label: 'Valor Vendas (R$)',
+                            data: valoresPorMes,
+                            backgroundColor: coresBarras,
+                            borderColor: 'rgba(167, 139, 250, 0.8)',
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Qtd. Unidades',
+                            data: qtdPorMes,
+                            type: 'line',
+                            borderColor: '#fbbf24',
+                            backgroundColor: '#fbbf24',
+                            tension: 0.3,
+                            pointRadius: 4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 11 } } } },
+                    scales: {
+                        x: { ticks: { color: '#a78bfa' }, grid: { color: 'rgba(139, 92, 246, 0.1)' } },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            ticks: { color: '#34d399' },
+                            grid: { color: 'rgba(139, 92, 246, 0.1)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            ticks: { color: '#fbbf24', stepSize: 1 },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderizarGraficoDiario(mesSelecionado, diaFoco) {
+            const [ano, mes] = mesSelecionado.split('-').map(Number);
+            const diasNoMes = new Date(ano, mes, 0).getDate();
+
+            const labelsDias = [];
+            const valoresPorDia = Array(diasNoMes).fill(0);
+            const qtdPorDia = Array(diasNoMes).fill(0);
+            const coresBarras = Array(diasNoMes).fill('rgba(139, 92, 246, 0.45)');
+
+            for (let d = 1; d <= diasNoMes; d++) {
+                const diaStr = String(d).padStart(2, '0');
+                labelsDias.push(diaStr);
+                if (`${mesSelecionado}-${diaStr}` === diaFoco) {
+                    coresBarras[d - 1] = 'rgba(251, 191, 36, 0.95)';
+                }
+            }
+
+            dadosVendasDashboard.forEach(v => {
+                if (v.mes_iso === mesSelecionado) {
+                    const diaIdx = parseInt(v.data_iso.split('-')[2], 10) - 1;
+                    if (diaIdx >= 0 && diaIdx < diasNoMes) {
+                        valoresPorDia[diaIdx] += v.subtotal;
+                        qtdPorDia[diaIdx] += v.quantidade;
+                    }
+                }
+            });
+
+            const ctx = document.getElementById('graficoDiario').getContext('2d');
+            if (chartDiarioInstance) chartDiarioInstance.destroy();
+
+            chartDiarioInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labelsDias,
+                    datasets: [
+                        {
+                            label: 'Valor Vendas (R$)',
+                            data: valoresPorDia,
+                            backgroundColor: coresBarras,
+                            borderRadius: 4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Qtd. Unidades',
+                            data: qtdPorDia,
+                            type: 'line',
+                            borderColor: '#34d399',
+                            backgroundColor: '#34d399',
+                            tension: 0.3,
+                            pointRadius: 3,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 11 } } } },
+                    scales: {
+                        x: { ticks: { color: '#a78bfa', font: { size: 10 } }, grid: { color: 'rgba(139, 92, 246, 0.08)' } },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            ticks: { color: '#34d399' },
+                            grid: { color: 'rgba(139, 92, 246, 0.1)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            ticks: { color: '#fbbf24', stepSize: 1 },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // =======================================================
+        // FILTRO DA PÁGINA LISTA DE PRODUTOS EM ESTOQUE
+        // =======================================================
         function filtrarCatalogo() {
             const termo = document.getElementById('busca_catalogo').value.toLowerCase().trim();
             const filtroStatus = document.getElementById('filtro_disponibilidade').value;
@@ -747,17 +1190,26 @@
             });
 
             const avisoVazio = document.getElementById('catalogo_sem_resultados');
-            if (avisoVazio) {
-                avisoVazio.classList.toggle('hidden', visiveis > 0);
-            }
+            if (avisoVazio) avisoVazio.classList.toggle('hidden', visiveis > 0);
         }
 
-        // --- CADASTRO DE PRODUTOS ---
+        // =======================================================
+        // CADASTRO DE PRODUTOS (CÓDIGO AUTOMÁTICO XXX-00)
+        // =======================================================
         function editarCadastro(item) {
             document.getElementById('form-cadastro-titulo').innerText = "Editar Cadastro";
             document.getElementById('cad_id').value = item.id;
-            document.getElementById('cad_codigo').value = item.codigo;
             document.getElementById('cad_produto').value = item.produto;
+            document.getElementById('cad_codigo').value = item.codigo;
+
+            // Extrai a sequência numérica atual do código (ex: "POC-03" -> 3)
+            let seqAtual = item.id;
+            if (item.codigo && item.codigo.includes("-")) {
+                const sufixo = parseInt(item.codigo.split("-").pop(), 10);
+                if (!isNaN(sufixo)) seqAtual = sufixo;
+            }
+            document.getElementById('cad_seq_atual').value = seqAtual;
+
             document.getElementById('btn-salvar-cadastro').innerText = "Atualizar Cadastro";
             document.getElementById('btn-cancelar-cadastro').classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -766,13 +1218,56 @@
         function limparFormCadastro() {
             document.getElementById('form-cadastro-titulo').innerText = "Cadastro de Produto";
             document.getElementById('cad_id').value = "";
-            document.getElementById('cad_codigo').value = "";
             document.getElementById('cad_produto').value = "";
+            document.getElementById('cad_codigo').value = "";
+            document.getElementById('cad_seq_atual').value = proximaSequenciaCadastro;
             document.getElementById('btn-salvar-cadastro').innerText = "Salvar Cadastro";
             document.getElementById('btn-cancelar-cadastro').classList.add('hidden');
         }
 
-        // --- LANÇAMENTO EM ESTOQUE ---
+        // =======================================================
+        // LANÇAMENTO E AJUSTE DE ESTOQUE (ENTRADA VS PERDA/QUEBRA)
+        // =======================================================
+        function alternarModoEstoque(modo) {
+            document.getElementById('est_tipo_operacao').value = modo;
+            const btnEntrada = document.getElementById('btn_modo_entrada');
+            const btnAjuste = document.getElementById('btn_modo_ajuste');
+            const blocoPrecos = document.getElementById('bloco_precos_estoque');
+            const blocoMotivo = document.getElementById('bloco_motivo_ajuste');
+            const labelQtd = document.getElementById('label_est_quantidade');
+            const btnSalvar = document.getElementById('btn-salvar-estoque');
+            const inputCusto = document.getElementById('est_custo');
+            const inputVenda = document.getElementById('est_venda');
+
+            if (modo === 'ENTRADA') {
+                btnEntrada.className = "py-2 px-2 rounded-lg text-xs font-semibold bg-emerald-600/80 text-white shadow transition";
+                btnAjuste.className = "py-2 px-2 rounded-lg text-xs font-medium text-purple-300 hover:text-rose-200 transition";
+                
+                document.getElementById('form-estoque-titulo').innerText = "Lançamento de Produtos em Estoque";
+                labelQtd.innerText = "Qtd. Entrada";
+                blocoPrecos.classList.remove('hidden');
+                blocoMotivo.classList.add('hidden');
+                inputCusto.required = true;
+                inputVenda.required = true;
+
+                btnSalvar.innerText = "Lançar Entrada no Estoque";
+                btnSalvar.className = "w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-amber-600 to-purple-700 hover:opacity-95 shadow-lg shadow-purple-900/40 transition";
+            } else {
+                btnAjuste.className = "py-2 px-2 rounded-lg text-xs font-semibold bg-rose-600/80 text-white shadow transition";
+                btnEntrada.className = "py-2 px-2 rounded-lg text-xs font-medium text-purple-300 hover:text-emerald-200 transition";
+                
+                document.getElementById('form-estoque-titulo').innerText = "Ajuste / Perda / Quebra";
+                labelQtd.innerText = "Qtd. Baixa";
+                blocoPrecos.classList.add('hidden');
+                blocoMotivo.classList.remove('hidden');
+                inputCusto.required = false;
+                inputVenda.required = false;
+
+                btnSalvar.innerText = "Confirmar Baixa / Ajuste";
+                btnSalvar.className = "w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-rose-600 to-purple-800 hover:opacity-95 shadow-lg shadow-rose-900/40 transition";
+            }
+        }
+
         function selecionarProdutoCadastro() {
             const nomeSelecionado = document.getElementById('est_produto').value;
             const item = listaCadastros.find(c => c.produto === nomeSelecionado);
@@ -797,7 +1292,10 @@
         }
 
         function editarProdutoEstoque(item) {
-            document.getElementById('form-estoque-titulo').innerText = "Editar Lançamento";
+            alternarModoEstoque('ENTRADA');
+            document.getElementById('seletor_modo_estoque').classList.add('hidden');
+            document.getElementById('form-estoque-titulo').innerText = "Editar Saldo em Estoque";
+            document.getElementById('label_est_quantidade').innerText = "Saldo Total";
             document.getElementById('est_id').value = item.id;
             document.getElementById('est_produto').value = item.produto;
             document.getElementById('est_codigo').value = item.codigo;
@@ -811,19 +1309,20 @@
         }
 
         function limparFormEstoque() {
-            document.getElementById('form-estoque-titulo').innerText = "Lançamento de Produtos em Estoque";
+            document.getElementById('seletor_modo_estoque').classList.remove('hidden');
             document.getElementById('est_id').value = "";
             document.getElementById('est_produto').value = "";
             document.getElementById('est_codigo').value = "";
             document.getElementById('est_quantidade').value = "";
             document.getElementById('est_custo').value = "";
             document.getElementById('est_venda').value = "";
-            
-            document.getElementById('btn-salvar-estoque').innerText = "Lançar no Estoque";
             document.getElementById('btn-cancelar-edicao').classList.add('hidden');
+            alternarModoEstoque('ENTRADA');
         }
 
-        // --- PEDIDO MULTI-PRODUTOS (VENDAS) ---
+        // =======================================================
+        // PEDIDO MULTI-PRODUTOS (VENDAS)
+        // =======================================================
         function selecionarProdutoVenda() {
             const nomeSelecionado = document.getElementById('venda_produto').value;
             const item = listaEstoque.find(p => p.produto === nomeSelecionado);
