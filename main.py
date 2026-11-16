@@ -1,5 +1,7 @@
 import os
+import re
 import json
+import unicodedata
 from datetime import datetime, date
 from decimal import Decimal
 from urllib.parse import quote
@@ -61,6 +63,7 @@ class MovimentacaoEstoque(Base):
     saldo_anterior = Column(Integer, nullable=False)
     saldo_atual = Column(Integer, nullable=False)
     venda_id = Column(Integer, nullable=True)
+    motivo = Column(String(150), nullable=True)
     data_movimentacao = Column(DateTime(timezone=True), server_default=func.now())
 
 Base.metadata.create_all(bind=engine)
@@ -74,6 +77,25 @@ templates = Jinja2Templates(directory="templates")
 def formatar_titulo(texto: str) -> str:
     return " ".join(palavra.capitalize() for palavra in texto.strip().split())
 
+def extrair_prefixo_codigo(nome_produto: str) -> str:
+    """Remove acentos e extrai as 3 primeiras letras em maiúsculo (XXX)."""
+    sem_acento = unicodedata.normalize("NFD", nome_produto).encode("ascii", "ignore").decode("utf-8")
+    apenas_letras = re.sub(r"[^A-Za-z]", "", sem_acento).upper()
+    return (apenas_letras + "PRD")[:3]
+
+def obter_proxima_sequencia_cadastro(db) -> int:
+    """Calcula a próxima sequência numérica (01, 02, ...) baseada nos cadastros existentes."""
+    todos = db.query(CadastroProduto).all()
+    maior_seq = 0
+    for item in todos:
+        if item.id and item.id > maior_seq:
+            maior_seq = item.id
+        if item.codigo and "-" in item.codigo:
+            sufixo = item.codigo.split("-")[-1]
+            if sufixo.isdigit():
+                maior_seq = max(maior_seq, int(sufixo))
+    return maior_seq + 1
+
 def gerar_proximo_numero_pedido(db) -> str:
     ultimo_id = db.query(func.max(Venda.id)).scalar() or 0
     return f"PED-{ultimo_id + 1:04d}"
@@ -86,18 +108,42 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
     try:
         cadastros = db.query(CadastroProduto).order_by(CadastroProduto.produto.asc()).all()
         estoque_itens = db.query(Estoque).order_by(Estoque.produto.asc()).all()
-        vendas_raw = db.query(Venda).order_by(Venda.id.desc()).limit(60).all()
-        movimentacoes = db.query(MovimentacaoEstoque).order_by(MovimentacaoEstoque.id.desc()).limit(30).all()
+        vendas_todas = db.query(Venda).order_by(Venda.id.desc()).all()
+        movimentacoes = db.query(MovimentacaoEstoque).order_by(MovimentacaoEstoque.id.desc()).limit(40).all()
         proximo_pedido = gerar_proximo_numero_pedido(db)
+        proxima_seq_cadastro = obter_proxima_sequencia_cadastro(db)
 
-        # Totalizadores para a página de Consulta de Estoque
+        # Totalizadores do Estoque
         total_unidades_estoque = sum(p.quantidade for p in estoque_itens)
         valor_total_venda_estoque = sum((Decimal(str(p.vl_venda)) * p.quantidade) for p in estoque_itens)
 
-        # Agrupa as vendas por n_pedido
+        # Totalizadores Gerais de Vendas Concluídas
+        vendas_concluidas = [v for v in vendas_todas if v.status == "CONCLUIDA"]
+        valor_total_vendas_geral = sum((Decimal(str(v.vl_venda)) * v.quantidade) for v in vendas_concluidas)
+        qtd_pedidos_concluidos = len(set((v.n_pedido or f"PED-{v.id:04d}") for v in vendas_concluidas))
+
+        # Serializa vendas concluídas para os gráficos e tabelas dinâmicas do Dashboard
+        vendas_dashboard_json = [
+            {
+                "id": v.id,
+                "n_pedido": v.n_pedido or f"PED-{v.id:04d}",
+                "codigo": v.codigo,
+                "produto": v.produto,
+                "quantidade": v.quantidade,
+                "vl_custo": float(v.vl_custo),
+                "vl_venda": float(v.vl_venda),
+                "subtotal": float(Decimal(str(v.vl_venda)) * v.quantidade),
+                "lucro": float((Decimal(str(v.vl_venda)) - Decimal(str(v.vl_custo))) * v.quantidade),
+                "data_iso": v.data_venda.strftime("%Y-%m-%d") if v.data_venda else date.today().isoformat(),
+                "mes_iso": v.data_venda.strftime("%Y-%m") if v.data_venda else date.today().strftime("%Y-%m")
+            }
+            for v in vendas_concluidas
+        ]
+
+        # Agrupa as últimas 80 linhas de vendas por n_pedido para listagem
         pedidos_agrupados = []
         mapa_pedidos = {}
-        for v in vendas_raw:
+        for v in vendas_todas[:80]:
             num = v.n_pedido or f"PED-{v.id:04d}"
             if num not in mapa_pedidos:
                 grupo = {
@@ -136,6 +182,7 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
             for p in estoque_itens
         ]
         
+        hoje = date.today()
         return templates.TemplateResponse(
             request=request,
             name="index.html",
@@ -146,10 +193,15 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
                 "movimentacoes": movimentacoes,
                 "cadastros_json": cadastros_json,
                 "estoque_json": estoque_json,
+                "vendas_dashboard_json": vendas_dashboard_json,
                 "total_unidades_estoque": total_unidades_estoque,
                 "valor_total_venda_estoque": valor_total_venda_estoque,
-                "data_hoje": date.today().isoformat(),
+                "valor_total_vendas_geral": valor_total_vendas_geral,
+                "qtd_pedidos_concluidos": qtd_pedidos_concluidos,
+                "data_hoje": hoje.isoformat(),
+                "mes_atual": hoje.strftime("%Y-%m"),
                 "proximo_pedido": proximo_pedido,
+                "proxima_seq_cadastro": proxima_seq_cadastro,
                 "aba_ativa": aba,
                 "erro": erro,
                 "ok": ok
@@ -160,32 +212,56 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
         db.close()
 
 # ==========================================
-# ROTAS: CADASTRO DE PRODUTOS
+# ROTAS: CADASTRO DE PRODUTOS (CÓDIGO XXX-00)
 # ==========================================
 
 @app.post("/cadastro-produtos/salvar")
 def salvar_cadastro_produto(
     cadastro_id: str = Form(""),
-    codigo: str = Form(...),
+    codigo: str = Form(""),
     produto: str = Form(...)
 ):
     db = SessionLocal()
     try:
-        codigo_fmt = codigo.strip().upper()
         produto_fmt = formatar_titulo(produto)
+        prefixo = extrair_prefixo_codigo(produto_fmt)
 
         if cadastro_id:
             item = db.query(CadastroProduto).filter(CadastroProduto.id == int(cadastro_id)).first()
             if item:
                 codigo_antigo = item.codigo
+                # Preserva a sequência numérica existente ao editar o nome do produto
+                if "-" in codigo_antigo and codigo_antigo.split("-")[-1].isdigit():
+                    seq_existente = int(codigo_antigo.split("-")[-1])
+                else:
+                    seq_existente = item.id
+
+                codigo_fmt = f"{prefixo}-{seq_existente:02d}"
                 item.codigo = codigo_fmt
                 item.produto = produto_fmt
 
+                # Sincroniza o código e nome no Estoque, Vendas e Movimentações
                 item_est = db.query(Estoque).filter(Estoque.codigo == codigo_antigo).first()
                 if item_est:
                     item_est.codigo = codigo_fmt
                     item_est.produto = produto_fmt
+
+                db.query(Venda).filter(Venda.codigo == codigo_antigo).update(
+                    {"codigo": codigo_fmt, "produto": produto_fmt},
+                    synchronize_session=False
+                )
+                db.query(MovimentacaoEstoque).filter(MovimentacaoEstoque.codigo == codigo_antigo).update(
+                    {"codigo": codigo_fmt, "produto": produto_fmt},
+                    synchronize_session=False
+                )
         else:
+            seq = obter_proxima_sequencia_cadastro(db)
+            codigo_fmt = f"{prefixo}-{seq:02d}"
+            # Garante unicidade mesmo em inserções simultâneas
+            while db.query(CadastroProduto).filter(CadastroProduto.codigo == codigo_fmt).first():
+                seq += 1
+                codigo_fmt = f"{prefixo}-{seq:02d}"
+
             novo = CadastroProduto(codigo=codigo_fmt, produto=produto_fmt)
             db.add(novo)
         db.commit()
@@ -194,7 +270,7 @@ def salvar_cadastro_produto(
         return RedirectResponse(url=f"/?aba=cadastro&erro={quote(str(e))}", status_code=303)
     finally:
         db.close()
-    return RedirectResponse(url="/?aba=cadastro&ok=Cadastro+salvo+com+sucesso", status_code=303)
+    return RedirectResponse(url=f"/?aba=cadastro&ok={quote(f'Produto salvo com código {codigo_fmt}')}", status_code=303)
 
 @app.post("/cadastro-produtos/excluir/{id}")
 def excluir_cadastro_produto(id: int):
@@ -209,23 +285,26 @@ def excluir_cadastro_produto(id: int):
     return RedirectResponse(url="/?aba=cadastro&ok=Produto+removido+do+cadastro", status_code=303)
 
 # ==========================================
-# ROTAS: LANÇAMENTO EM ESTOQUE
+# ROTAS: LANÇAMENTO E AJUSTE DE ESTOQUE
 # ==========================================
 
 @app.post("/estoque/salvar")
 def salvar_estoque(
     produto_id: str = Form(""),
+    tipo_operacao: str = Form("ENTRADA"),
+    motivo_ajuste: str = Form(""),
     codigo: str = Form(...),
     produto: str = Form(...),
     quantidade: int = Form(...),
-    vl_custo: float = Form(...),
-    vl_venda: float = Form(...)
+    vl_custo: float = Form(0.0),
+    vl_venda: float = Form(0.0)
 ):
     db = SessionLocal()
     try:
         codigo_fmt = codigo.strip().upper()
         produto_fmt = formatar_titulo(produto)
 
+        # MODO 1: EDIÇÃO DIRETA DE LINHA EXISTENTE
         if produto_id:
             item = db.query(Estoque).filter(Estoque.id == int(produto_id)).with_for_update().first()
             if item:
@@ -242,43 +321,79 @@ def salvar_estoque(
                     tipo="AJUSTE_MANUAL",
                     quantidade=quantidade - saldo_ant,
                     saldo_anterior=saldo_ant,
-                    saldo_atual=quantidade
+                    saldo_atual=quantidade,
+                    motivo=motivo_ajuste.strip() or "Edição direta de saldo"
                 ))
-        else:
+            db.commit()
+            return RedirectResponse(url="/?aba=estoque&ok=Registro+de+estoque+atualizado", status_code=303)
+
+        # MODO 2: AJUSTE / PERDA / QUEBRA (BAIXA DE ESTOQUE)
+        if tipo_operacao == "AJUSTE_BAIXA":
+            if quantidade <= 0:
+                return RedirectResponse(url="/?aba=estoque&erro=Informe+uma+quantidade+maior+que+zero+para+baixa", status_code=303)
+
             item_existente = db.query(Estoque).filter(Estoque.codigo == codigo_fmt).with_for_update().first()
-            if item_existente:
-                saldo_ant = item_existente.quantidade
-                saldo_novo = saldo_ant + quantidade
-                item_existente.quantidade = saldo_novo
-                item_existente.vl_custo = Decimal(str(vl_custo))
-                item_existente.vl_venda = Decimal(str(vl_venda))
-            else:
-                saldo_ant = 0
-                saldo_novo = quantidade
-                novo_item = Estoque(
-                    codigo=codigo_fmt,
-                    produto=produto_fmt,
-                    quantidade=saldo_novo,
-                    vl_custo=Decimal(str(vl_custo)),
-                    vl_venda=Decimal(str(vl_venda))
-                )
-                db.add(novo_item)
+            if not item_existente:
+                return RedirectResponse(url=f"/?aba=estoque&erro={quote(f'O produto {produto_fmt} ainda não possui saldo lançado no estoque.')}", status_code=303)
+
+            if item_existente.quantidade < quantidade:
+                msg = f"Saldo insuficiente para baixar {quantidade} un. de {produto_fmt}. Saldo atual: {item_existente.quantidade} un."
+                return RedirectResponse(url=f"/?aba=estoque&erro={quote(msg)}", status_code=303)
+
+            saldo_ant = item_existente.quantidade
+            saldo_novo = saldo_ant - quantidade
+            item_existente.quantidade = saldo_novo
+
+            motivo_final = formatar_titulo(motivo_ajuste) if motivo_ajuste.strip() else "Perda / Quebra"
 
             db.add(MovimentacaoEstoque(
                 codigo=codigo_fmt,
                 produto=produto_fmt,
-                tipo="ENTRADA",
-                quantidade=quantidade,
+                tipo="PERDA_QUEBRA",
+                quantidade=-quantidade,
                 saldo_anterior=saldo_ant,
-                saldo_atual=saldo_novo
+                saldo_atual=saldo_novo,
+                motivo=motivo_final
             ))
+            db.commit()
+            return RedirectResponse(url=f"/?aba=estoque&ok={quote(f'Baixa de {quantidade} un. ({motivo_final}) registrada com sucesso!')}", status_code=303)
+
+        # MODO 3: ENTRADA DE MERCADORIA (SOMA AO SALDO ATUAL)
+        item_existente = db.query(Estoque).filter(Estoque.codigo == codigo_fmt).with_for_update().first()
+        if item_existente:
+            saldo_ant = item_existente.quantidade
+            saldo_novo = saldo_ant + quantidade
+            item_existente.quantidade = saldo_novo
+            item_existente.vl_custo = Decimal(str(vl_custo))
+            item_existente.vl_venda = Decimal(str(vl_venda))
+        else:
+            saldo_ant = 0
+            saldo_novo = quantidade
+            novo_item = Estoque(
+                codigo=codigo_fmt,
+                produto=produto_fmt,
+                quantidade=saldo_novo,
+                vl_custo=Decimal(str(vl_custo)),
+                vl_venda=Decimal(str(vl_venda))
+            )
+            db.add(novo_item)
+
+        db.add(MovimentacaoEstoque(
+            codigo=codigo_fmt,
+            produto=produto_fmt,
+            tipo="ENTRADA",
+            quantidade=quantidade,
+            saldo_anterior=saldo_ant,
+            saldo_atual=saldo_novo,
+            motivo="Entrada de mercadoria"
+        ))
         db.commit()
     except Exception as e:
         db.rollback()
         return RedirectResponse(url=f"/?aba=estoque&erro={quote(str(e))}", status_code=303)
     finally:
         db.close()
-    return RedirectResponse(url="/?aba=estoque&ok=Estoque+atualizado+com+sucesso", status_code=303)
+    return RedirectResponse(url="/?aba=estoque&ok=Entrada+lançada+no+estoque+com+sucesso", status_code=303)
 
 @app.post("/estoque/excluir/{id}")
 def excluir_estoque(id: int):
@@ -365,7 +480,8 @@ def registrar_venda(
                 quantidade=-qtd,
                 saldo_anterior=saldo_ant,
                 saldo_atual=saldo_novo,
-                venda_id=nova_venda.id
+                venda_id=nova_venda.id,
+                motivo=f"Venda {pedido_fmt}"
             ))
 
         db.commit()
@@ -403,7 +519,8 @@ def estornar_pedido(n_pedido: str):
                     quantidade=v.quantidade,
                     saldo_anterior=saldo_ant,
                     saldo_atual=saldo_novo,
-                    venda_id=v.id
+                    venda_id=v.id,
+                    motivo=f"Estorno {pedido_fmt}"
                 ))
             v.status = "CANCELADA"
 
