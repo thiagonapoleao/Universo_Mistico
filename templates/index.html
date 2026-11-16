@@ -6,6 +6,7 @@
     <title>Universo Místico • Estoque & Vendas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -72,7 +73,7 @@
                     💎 Lista Estoque
                 </button>
                 <button onclick="switchTab('estoque')" id="tab-estoque" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition">
-                    🔮 Lançar Estoque
+                    🔮 Movimentação de Estoque
                 </button>
                 <button onclick="switchTab('cadastro')" id="tab-cadastro" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition">
                     📜 Cadastro
@@ -99,7 +100,7 @@
         {% endif %}
 
         <!-- ======================================================= -->
-        <!-- SEÇÃO 1: VENDAS (MULTI-PRODUTOS + TOTAL PEDIDO & GERAL) -->
+        <!-- SEÇÃO 1: VENDAS (SOMENTE VENDAS DO DIA + FILTRO DATA)   -->
         <!-- ======================================================= -->
         <section id="sec-vendas" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
@@ -127,7 +128,7 @@
 
                         <div>
                             <label class="block text-xs font-medium text-purple-300 uppercase tracking-wider mb-1">Data da Venda</label>
-                            <input type="date" name="data_venda" id="venda_data" value="{{ data_hoje }}" required
+                            <input type="date" name="data_venda" id="venda_data" value="{{ data_hoje }}" onchange="sincronizarFiltroDiaVendas(this.value)" required
                                    class="input-mystic w-full rounded-xl px-3.5 py-2.5 text-sm ring-1 ring-purple-500/40 focus:ring-2 focus:ring-amber-400">
                         </div>
                     </div>
@@ -201,89 +202,53 @@
                 </form>
             </div>
 
-            <!-- Coluna Direita: Total Geral das Vendas + Histórico de Pedidos -->
+            <!-- Coluna Direita: Filtro Dinâmico por Dia + Total do Dia + Pedidos do Dia -->
             <div class="lg:col-span-7 space-y-4">
                 
+                <!-- Card de Total das Vendas no Dia Selecionado -->
                 <div class="glass-card rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-emerald-500/30">
                     <div class="flex items-center gap-3">
                         <div class="h-11 w-11 rounded-xl bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-xl">
                             💰
                         </div>
                         <div>
-                            <p class="text-xs text-purple-300/80 uppercase tracking-wider">Valor Total das Vendas (Concluídas)</p>
-                            <p class="text-2xl font-bold text-emerald-400">R$ {{ "%.2f"|format(valor_total_vendas_geral) }}</p>
+                            <p id="label_total_vendas_dia" class="text-xs text-purple-300/80 uppercase tracking-wider">Valor Total das Vendas (Dia)</p>
+                            <p id="valor_total_vendas_dia" class="text-2xl font-bold text-emerald-400">R$ 0,00</p>
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-3 text-xs">
+                    <div class="flex items-center gap-3">
+                        <div>
+                            <label class="block text-[10px] font-medium text-purple-300 uppercase tracking-wider mb-1">Filtrar Data</label>
+                            <input type="date" id="filtro_data_pedidos" value="{{ data_hoje }}" onchange="renderizarPedidosDoDia()"
+                                   class="input-mystic rounded-xl px-3 py-1.5 text-sm ring-1 ring-amber-500/40 focus:ring-2 focus:ring-amber-400">
+                        </div>
+
                         <div class="px-3 py-2 rounded-xl bg-[#130f22] border border-purple-800/40 text-center">
-                            <span class="block text-purple-400">Pedidos Ativos</span>
-                            <span class="font-bold text-amber-200 text-sm">{{ qtd_pedidos_concluidos }}</span>
+                            <span class="block text-[10px] text-purple-400 uppercase">Pedidos</span>
+                            <span id="qtd_pedidos_dia" class="font-bold text-amber-200 text-sm">0</span>
                         </div>
                     </div>
                 </div>
 
+                <!-- Lista de Pedidos Referentes ao Dia Filtrado -->
                 <div class="glass-card rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
-                        <h3 class="font-mystic text-lg font-semibold text-purple-200">Últimos Pedidos</h3>
-                        <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-700/40">
-                            {{ pedidos|length }} registros
+                        <h3 id="titulo_pedidos_dia" class="font-mystic text-lg font-semibold text-purple-200">Pedidos do Dia</h3>
+                        <span id="badge_pedidos_dia" class="text-xs px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-700/40">
+                            0 registros
                         </span>
                     </div>
 
-                    <div class="space-y-3">
-                        {% for ped in pedidos %}
-                        <div class="rounded-xl bg-[#130f22]/90 border border-purple-800/40 p-4 {{ 'opacity-55' if ped.status == 'CANCELADA' else '' }}">
-                            <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-purple-900/40">
-                                <div class="flex items-center gap-2.5">
-                                    <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                        {{ ped.n_pedido }}
-                                    </span>
-                                    <span class="text-xs text-purple-300/80">
-                                        {{ ped.data_venda.strftime('%d/%m/%Y %H:%M') if ped.data_venda else '-' }}
-                                    </span>
-                                </div>
-
-                                <div class="flex items-center gap-3">
-                                    <span class="text-sm font-bold text-emerald-400">
-                                        Pedido: R$ {{ "%.2f"|format(ped.total_pedido) }}
-                                    </span>
-
-                                    {% if ped.status == 'CANCELADA' %}
-                                        <span class="px-2 py-0.5 rounded text-[11px] bg-rose-950 text-rose-300 border border-rose-700/40">Estornado</span>
-                                    {% else %}
-                                        <form action="/vendas/estornar-pedido/{{ ped.n_pedido }}" method="POST" onsubmit="return confirm('Estornar o pedido {{ ped.n_pedido }} completo e devolver todos os itens ao estoque?');" class="inline">
-                                            <button type="submit" class="px-2.5 py-1 rounded-lg text-[11px] bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 transition">
-                                                Estornar
-                                            </button>
-                                        </form>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <ul class="mt-2.5 space-y-1.5 text-xs">
-                                {% for item in ped.itens %}
-                                <li class="flex items-center justify-between text-slate-300">
-                                    <span>
-                                        <span class="font-mono text-amber-300/70">[{{ item.codigo }}]</span>
-                                        <span class="capitalize font-medium {{ 'line-through' if ped.status == 'CANCELADA' else '' }}">{{ item.produto }}</span>
-                                        <span class="text-purple-300">× {{ item.quantidade }} un.</span>
-                                    </span>
-                                    <span class="text-slate-400">R$ {{ "%.2f"|format(item.subtotal) }}</span>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        {% else %}
-                        <div class="py-10 text-center text-purple-400/60 text-sm">Nenhum pedido registrado ainda.</div>
-                        {% endfor %}
+                    <div id="container_pedidos_dia" class="space-y-3">
+                        <!-- Preenchido dinamicamente pelo JS com base na data selecionada -->
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- ======================================================= -->
-        <!-- SEÇÃO 2: DASHBOARD ANALÍTICO (BARRAS + CUSTOS + RESUMOS)-->
+        <!-- SEÇÃO 2: DASHBOARD ANALÍTICO (BARRAS + LUCRO BRUTO)     -->
         <!-- ======================================================= -->
         <section id="sec-dashboard" class="hidden flex-col space-y-6">
             
@@ -292,7 +257,7 @@
                     <h2 class="font-mystic text-lg sm:text-xl font-bold text-amber-200 flex items-center gap-2">
                         <span>📊</span> Oráculo de Vendas (Dashboard)
                     </h2>
-                    <p class="text-xs text-purple-300/70">Acompanhamento dinâmico de faturamento, custos, quantidades e produtos mais vendidos</p>
+                    <p class="text-xs text-purple-300/70">Acompanhamento dinâmico de faturamento, custos, lucro bruto e quantidades</p>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-3">
@@ -310,9 +275,8 @@
                 </div>
             </div>
 
-            <!-- KPIs Dinâmicos do Mês e do Dia em Foco (Incluindo Valor de Custo) -->
+            <!-- KPIs Dinâmicos do Mês e do Dia em Foco -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Linha Mês -->
                 <div class="glass-card rounded-2xl p-4 border-emerald-500/25">
                     <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Faturamento no Mês</p>
                     <p id="kpi_mes_valor" class="text-xl sm:text-2xl font-bold text-emerald-400 mt-1">R$ 0,00</p>
@@ -331,7 +295,6 @@
                     <p class="text-xs text-purple-300/70 mt-1">Venda − Custo</p>
                 </div>
 
-                <!-- Linha Dia -->
                 <div class="glass-card rounded-2xl p-4 border-emerald-500/25">
                     <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Faturamento no Dia</p>
                     <p id="kpi_dia_valor" class="text-xl sm:text-2xl font-bold text-emerald-400 mt-1">R$ 0,00</p>
@@ -351,7 +314,7 @@
                 </div>
             </div>
 
-            <!-- GRÁFICOS EM BARRAS: MENSAL E DIÁRIO -->
+            <!-- GRÁFICOS EM BARRAS COM VALORES EXIBIDOS -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 <div class="glass-card rounded-2xl p-6">
@@ -359,7 +322,7 @@
                         <h3 class="font-mystic text-base font-semibold text-amber-200">Vendas por Mês (Valores & Qtd)</h3>
                         <span id="label_ano_grafico" class="text-xs px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/40">2026</span>
                     </div>
-                    <div class="relative h-64 w-full">
+                    <div class="relative h-72 w-full">
                         <canvas id="graficoMensal"></canvas>
                     </div>
                 </div>
@@ -369,13 +332,13 @@
                         <h3 class="font-mystic text-base font-semibold text-amber-200">Vendas por Dia (Valores & Qtd)</h3>
                         <span id="label_mes_grafico" class="text-xs px-2.5 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/40">Mês em foco</span>
                     </div>
-                    <div class="relative h-64 w-full">
+                    <div class="relative h-72 w-full">
                         <canvas id="graficoDiario"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- LISTAS RESUMO DE PRODUTOS VENDIDOS -->
+            <!-- LISTAS RESUMO DE PRODUTOS VENDIDOS (COM COLUNA LUCRO BRUTO) -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 <div class="glass-card rounded-2xl p-6">
@@ -390,8 +353,8 @@
                                 <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
                                     <th class="py-2 px-2">Produto</th>
                                     <th class="py-2 px-2 text-center">Qtd</th>
-                                    <th class="py-2 px-2 text-right">Custo</th>
                                     <th class="py-2 px-2 text-right">Total Venda</th>
+                                    <th class="py-2 px-2 text-right">Lucro Bruto</th>
                                 </tr>
                             </thead>
                             <tbody id="tabela_resumo_mes" class="divide-y divide-purple-900/30">
@@ -412,8 +375,8 @@
                                 <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
                                     <th class="py-2 px-2">Produto</th>
                                     <th class="py-2 px-2 text-center">Qtd</th>
-                                    <th class="py-2 px-2 text-right">Custo</th>
                                     <th class="py-2 px-2 text-right">Total Venda</th>
+                                    <th class="py-2 px-2 text-right">Lucro Bruto</th>
                                 </tr>
                             </thead>
                             <tbody id="tabela_resumo_dia" class="divide-y divide-purple-900/30">
@@ -561,7 +524,7 @@
         </section>
 
         <!-- ======================================================= -->
-        <!-- SEÇÃO 4: LANÇAMENTO E AJUSTE DE ESTOQUE (PERDA/QUEBRA)  -->
+        <!-- SEÇÃO 4: MOVIMENTAÇÃO DE ESTOQUE (ENTRADA & PERDA/QUEBRA)-->
         <!-- ======================================================= -->
         <section id="sec-estoque" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
             
@@ -569,7 +532,7 @@
                 <div class="flex items-center justify-between mb-4 border-b border-purple-800/40 pb-3">
                     <div class="flex items-center gap-2">
                         <span class="text-xl">🌿</span>
-                        <h2 id="form-estoque-titulo" class="font-mystic text-base sm:text-lg font-semibold text-amber-200">Lançamento de Produtos em Estoque</h2>
+                        <h2 id="form-estoque-titulo" class="font-mystic text-base sm:text-lg font-semibold text-amber-200">Movimentação de Estoque</h2>
                     </div>
                     <button type="button" id="btn-cancelar-edicao" onclick="limparFormEstoque()" class="hidden text-xs text-rose-400 hover:underline">
                         Cancelar
@@ -644,7 +607,7 @@
                     </div>
 
                     <button type="submit" id="btn-salvar-estoque" class="w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-amber-600 to-purple-700 hover:opacity-95 shadow-lg shadow-purple-900/40 transition">
-                        Lançar no Estoque
+                        Lançar Movimentação
                     </button>
                 </form>
             </div>
@@ -854,9 +817,13 @@
 
     <!-- SCRIPTS DE AUTOMAÇÃO E GRÁFICOS -->
     <script>
+        // Registra o plugin de rótulos de dados nas barras
+        Chart.register(ChartDataLabels);
+
         const listaCadastros = {{ cadastros_json | tojson }};
         const listaEstoque = {{ estoque_json | tojson }};
         const dadosVendasDashboard = {{ vendas_dashboard_json | tojson }};
+        const todosPedidosAgrupados = {{ pedidos_agrupados_json | tojson }};
         const proximaSequenciaCadastro = {{ proxima_seq_cadastro }};
         const abaInicial = "{{ aba_ativa }}";
         
@@ -875,18 +842,27 @@
             const mesAtualLocal = `${ano}-${mes}`;
 
             const campoDataVenda = document.getElementById('venda_data');
+            const campoFiltroPedidos = document.getElementById('filtro_data_pedidos');
             if (campoDataVenda) campoDataVenda.value = dataHojeLocal;
+            if (campoFiltroPedidos) campoFiltroPedidos.value = dataHojeLocal;
 
             const dashMes = document.getElementById('dash_filtro_mes');
             const dashDia = document.getElementById('dash_filtro_dia');
             if (dashMes) dashMes.value = mesAtualLocal;
             if (dashDia) dashDia.value = dataHojeLocal;
 
+            renderizarPedidosDoDia();
             switchTab(abaInicial || 'vendas');
         });
 
         function formatarMoeda(valor) {
             return `R$ ${Number(valor || 0).toFixed(2).replace('.', ',')}`;
+        }
+
+        function formatarDataBR(isoDate) {
+            if (!isoDate || !isoDate.includes('-')) return isoDate;
+            const [a, m, d] = isoDate.split('-');
+            return `${d}/${m}/${a}`;
         }
 
         function capitalizarPrimeiraLetra(input) {
@@ -946,6 +922,7 @@
             });
 
             if (tab === 'vendas') {
+                renderizarPedidosDoDia();
                 const campoData = document.getElementById('venda_data');
                 if (campoData) campoData.focus();
             } else if (tab === 'dashboard') {
@@ -960,7 +937,85 @@
         }
 
         // =======================================================
-        // DASHBOARD ANALÍTICO (GRÁFICOS EM BARRAS & CUSTOS)
+        // VENDAS DO DIA (FILTRO DINÂMICO POR DATA)
+        // =======================================================
+        function sincronizarFiltroDiaVendas(novaData) {
+            const filtro = document.getElementById('filtro_data_pedidos');
+            if (filtro && novaData) {
+                filtro.value = novaData;
+                renderizarPedidosDoDia();
+            }
+        }
+
+        function renderizarPedidosDoDia() {
+            const dataSelecionada = document.getElementById('filtro_data_pedidos').value;
+            const container = document.getElementById('container_pedidos_dia');
+            const totalDiaEl = document.getElementById('valor_total_vendas_dia');
+            const labelTotalEl = document.getElementById('label_total_vendas_dia');
+            const qtdPedidosEl = document.getElementById('qtd_pedidos_dia');
+            const tituloPedidosEl = document.getElementById('titulo_pedidos_dia');
+            const badgePedidosEl = document.getElementById('badge_pedidos_dia');
+
+            const dataFormatada = formatarDataBR(dataSelecionada);
+            labelTotalEl.innerText = `Valor Total das Vendas (${dataFormatada})`;
+            tituloPedidosEl.innerText = `Pedidos de ${dataFormatada}`;
+
+            const pedidosDoDia = todosPedidosAgrupados.filter(p => p.data_iso === dataSelecionada);
+            const pedidosAtivos = pedidosDoDia.filter(p => p.status === 'CONCLUIDA');
+            const somaTotalDia = pedidosAtivos.reduce((acc, p) => acc + p.total_pedido, 0);
+
+            totalDiaEl.innerText = formatarMoeda(somaTotalDia);
+            qtdPedidosEl.innerText = pedidosAtivos.length;
+            badgePedidosEl.innerText = `${pedidosDoDia.length} ${pedidosDoDia.length === 1 ? 'registro' : 'registros'}`;
+
+            if (pedidosDoDia.length === 0) {
+                container.innerHTML = `<div class="py-10 text-center text-purple-400/60 text-sm">Nenhuma venda registrada na data ${dataFormatada}.</div>`;
+                return;
+            }
+
+            container.innerHTML = pedidosDoDia.map(ped => {
+                const cancelado = ped.status === 'CANCELADA';
+                const itensHtml = ped.itens.map(item => `
+                    <li class="flex items-center justify-between text-slate-300">
+                        <span>
+                            <span class="font-mono text-amber-300/70">[${item.codigo}]</span>
+                            <span class="capitalize font-medium ${cancelado ? 'line-through' : ''}">${item.produto}</span>
+                            <span class="text-purple-300">× ${item.quantidade} un.</span>
+                        </span>
+                        <span class="text-slate-400">${formatarMoeda(item.subtotal)}</span>
+                    </li>
+                `).join('');
+
+                const acaoHtml = cancelado
+                    ? `<span class="px-2 py-0.5 rounded text-[11px] bg-rose-950 text-rose-300 border border-rose-700/40">Estornado</span>`
+                    : `<form action="/vendas/estornar-pedido/${ped.n_pedido}" method="POST" onsubmit="return confirm('Estornar o pedido ${ped.n_pedido} completo e devolver todos os itens ao estoque?');" class="inline">
+                           <button type="submit" class="px-2.5 py-1 rounded-lg text-[11px] bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 transition">
+                               Estornar
+                           </button>
+                       </form>`;
+
+                return `
+                    <div class="rounded-xl bg-[#130f22]/90 border border-purple-800/40 p-4 ${cancelado ? 'opacity-55' : ''}">
+                        <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-purple-900/40">
+                            <div class="flex items-center gap-2.5">
+                                <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                    ${ped.n_pedido}
+                                </span>
+                                <span class="text-xs text-purple-300/80">${ped.data_fmt}</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-bold text-emerald-400">Pedido: ${formatarMoeda(ped.total_pedido)}</span>
+                                ${acaoHtml}
+                            </div>
+                        </div>
+                        <ul class="mt-2.5 space-y-1.5 text-xs">${itensHtml}</ul>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // =======================================================
+        // DASHBOARD ANALÍTICO (BARRAS COM VALORES + LUCRO BRUTO)
         // =======================================================
         function atualizarDashboard() {
             const mesSelecionado = document.getElementById('dash_filtro_mes').value;
@@ -1008,11 +1063,11 @@
             const mapa = {};
             listaVendas.forEach(v => {
                 if (!mapa[v.codigo]) {
-                    mapa[v.codigo] = { codigo: v.codigo, produto: v.produto, qtd: 0, custo: 0, total: 0 };
+                    mapa[v.codigo] = { codigo: v.codigo, produto: v.produto, qtd: 0, total: 0, lucro: 0 };
                 }
                 mapa[v.codigo].qtd += v.quantidade;
-                mapa[v.codigo].custo += v.custo_total;
                 mapa[v.codigo].total += v.subtotal;
+                mapa[v.codigo].lucro += v.lucro;
             });
 
             const ranking = Object.values(mapa).sort((a, b) => b.total - a.total);
@@ -1030,8 +1085,8 @@
                         <span class="font-mono text-[10px] text-amber-300/70">${item.codigo}</span>
                     </td>
                     <td class="py-2.5 px-2 text-center font-semibold text-purple-200">${item.qtd} un.</td>
-                    <td class="py-2.5 px-2 text-right text-rose-300/90">${formatarMoeda(item.custo)}</td>
                     <td class="py-2.5 px-2 text-right font-bold text-emerald-400">${formatarMoeda(item.total)}</td>
+                    <td class="py-2.5 px-2 text-right font-semibold text-amber-300">${formatarMoeda(item.lucro)}</td>
                 </tr>
             `).join('');
         }
@@ -1040,8 +1095,8 @@
             const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
             const valoresPorMes = Array(12).fill(0);
             const qtdPorMes = Array(12).fill(0);
-            const coresBarrasValor = Array(12).fill('rgba(139, 92, 246, 0.55)');
-            const coresBarrasQtd = Array(12).fill('rgba(251, 191, 36, 0.45)');
+            const coresBarrasValor = Array(12).fill('rgba(139, 92, 246, 0.6)');
+            const coresBarrasQtd = Array(12).fill('rgba(251, 191, 36, 0.5)');
 
             const mesFocoIdx = parseInt(mesFoco.split('-')[1], 10) - 1;
             if (mesFocoIdx >= 0 && mesFocoIdx < 12) {
@@ -1074,7 +1129,16 @@
                             borderColor: 'rgba(167, 139, 250, 0.85)',
                             borderWidth: 1,
                             borderRadius: 5,
-                            yAxisID: 'y'
+                            yAxisID: 'y',
+                            datalabels: {
+                                color: '#6ee7b7',
+                                anchor: 'end',
+                                align: 'top',
+                                offset: 2,
+                                rotation: -45,
+                                font: { size: 9, weight: 'bold' },
+                                formatter: (val) => val > 0 ? `R$${val.toFixed(0)}` : ''
+                            }
                         },
                         {
                             label: 'Qtd. Unidades',
@@ -1083,25 +1147,38 @@
                             borderColor: 'rgba(251, 191, 36, 0.85)',
                             borderWidth: 1,
                             borderRadius: 5,
-                            yAxisID: 'y1'
+                            yAxisID: 'y1',
+                            datalabels: {
+                                color: '#fde68a',
+                                anchor: 'end',
+                                align: 'top',
+                                offset: 2,
+                                font: { size: 9, weight: 'bold' },
+                                formatter: (val) => val > 0 ? `${val}` : ''
+                            }
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 11 } } } },
+                    layout: { padding: { top: 24 } },
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1', font: { size: 11 } } }
+                    },
                     scales: {
                         x: { ticks: { color: '#a78bfa' }, grid: { color: 'rgba(139, 92, 246, 0.1)' } },
                         y: {
                             type: 'linear',
                             position: 'left',
+                            grace: '15%',
                             ticks: { color: '#34d399' },
                             grid: { color: 'rgba(139, 92, 246, 0.1)' }
                         },
                         y1: {
                             type: 'linear',
                             position: 'right',
+                            grace: '15%',
                             ticks: { color: '#fbbf24', stepSize: 1 },
                             grid: { drawOnChartArea: false }
                         }
@@ -1117,8 +1194,8 @@
             const labelsDias = [];
             const valoresPorDia = Array(diasNoMes).fill(0);
             const qtdPorDia = Array(diasNoMes).fill(0);
-            const coresBarrasValor = Array(diasNoMes).fill('rgba(16, 185, 129, 0.45)');
-            const coresBarrasQtd = Array(diasNoMes).fill('rgba(139, 92, 246, 0.45)');
+            const coresBarrasValor = Array(diasNoMes).fill('rgba(16, 185, 129, 0.5)');
+            const coresBarrasQtd = Array(diasNoMes).fill('rgba(139, 92, 246, 0.5)');
 
             for (let d = 1; d <= diasNoMes; d++) {
                 const diaStr = String(d).padStart(2, '0');
@@ -1152,32 +1229,54 @@
                             data: valoresPorDia,
                             backgroundColor: coresBarrasValor,
                             borderRadius: 4,
-                            yAxisID: 'y'
+                            yAxisID: 'y',
+                            datalabels: {
+                                color: '#6ee7b7',
+                                anchor: 'end',
+                                align: 'top',
+                                offset: 2,
+                                rotation: -60,
+                                font: { size: 9, weight: 'bold' },
+                                formatter: (val) => val > 0 ? `R$${val.toFixed(0)}` : ''
+                            }
                         },
                         {
                             label: 'Qtd. Unidades',
                             data: qtdPorDia,
                             backgroundColor: coresBarrasQtd,
                             borderRadius: 4,
-                            yAxisID: 'y1'
+                            yAxisID: 'y1',
+                            datalabels: {
+                                color: '#fde68a',
+                                anchor: 'end',
+                                align: 'top',
+                                offset: 2,
+                                font: { size: 9, weight: 'bold' },
+                                formatter: (val) => val > 0 ? `${val}` : ''
+                            }
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 11 } } } },
+                    layout: { padding: { top: 24 } },
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1', font: { size: 11 } } }
+                    },
                     scales: {
                         x: { ticks: { color: '#a78bfa', font: { size: 10 } }, grid: { color: 'rgba(139, 92, 246, 0.08)' } },
                         y: {
                             type: 'linear',
                             position: 'left',
+                            grace: '15%',
                             ticks: { color: '#34d399' },
                             grid: { color: 'rgba(139, 92, 246, 0.1)' }
                         },
                         y1: {
                             type: 'linear',
                             position: 'right',
+                            grace: '15%',
                             ticks: { color: '#fbbf24', stepSize: 1 },
                             grid: { drawOnChartArea: false }
                         }
@@ -1249,7 +1348,7 @@
         }
 
         // =======================================================
-        // LANÇAMENTO E AJUSTE DE ESTOQUE (ENTRADA VS PERDA/QUEBRA)
+        // MOVIMENTAÇÃO DE ESTOQUE (ENTRADA VS PERDA/QUEBRA)
         // =======================================================
         function alternarModoEstoque(modo) {
             document.getElementById('est_tipo_operacao').value = modo;
@@ -1266,14 +1365,14 @@
                 btnEntrada.className = "py-2 px-2 rounded-lg text-xs font-semibold bg-emerald-600/80 text-white shadow transition";
                 btnAjuste.className = "py-2 px-2 rounded-lg text-xs font-medium text-purple-300 hover:text-rose-200 transition";
                 
-                document.getElementById('form-estoque-titulo').innerText = "Lançamento de Produtos em Estoque";
+                document.getElementById('form-estoque-titulo').innerText = "Movimentação de Estoque";
                 labelQtd.innerText = "Qtd. Entrada";
                 blocoPrecos.classList.remove('hidden');
                 blocoMotivo.classList.add('hidden');
                 inputCusto.required = true;
                 inputVenda.required = true;
 
-                btnSalvar.innerText = "Lançar Entrada no Estoque";
+                btnSalvar.innerText = "Lançar Movimentação";
                 btnSalvar.className = "w-full py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-amber-600 to-purple-700 hover:opacity-95 shadow-lg shadow-purple-900/40 transition";
             } else {
                 btnAjuste.className = "py-2 px-2 rounded-lg text-xs font-semibold bg-rose-600/80 text-white shadow transition";
