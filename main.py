@@ -132,6 +132,7 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
                 "quantidade": v.quantidade,
                 "vl_custo": float(v.vl_custo),
                 "vl_venda": float(v.vl_venda),
+                "custo_total": float(Decimal(str(v.vl_custo)) * v.quantidade),
                 "subtotal": float(Decimal(str(v.vl_venda)) * v.quantidade),
                 "lucro": float((Decimal(str(v.vl_venda)) - Decimal(str(v.vl_custo))) * v.quantidade),
                 "data_iso": v.data_venda.strftime("%Y-%m-%d") if v.data_venda else date.today().isoformat(),
@@ -230,7 +231,6 @@ def salvar_cadastro_produto(
             item = db.query(CadastroProduto).filter(CadastroProduto.id == int(cadastro_id)).first()
             if item:
                 codigo_antigo = item.codigo
-                # Preserva a sequência numérica existente ao editar o nome do produto
                 if "-" in codigo_antigo and codigo_antigo.split("-")[-1].isdigit():
                     seq_existente = int(codigo_antigo.split("-")[-1])
                 else:
@@ -240,7 +240,6 @@ def salvar_cadastro_produto(
                 item.codigo = codigo_fmt
                 item.produto = produto_fmt
 
-                # Sincroniza o código e nome no Estoque, Vendas e Movimentações
                 item_est = db.query(Estoque).filter(Estoque.codigo == codigo_antigo).first()
                 if item_est:
                     item_est.codigo = codigo_fmt
@@ -257,7 +256,6 @@ def salvar_cadastro_produto(
         else:
             seq = obter_proxima_sequencia_cadastro(db)
             codigo_fmt = f"{prefixo}-{seq:02d}"
-            # Garante unicidade mesmo em inserções simultâneas
             while db.query(CadastroProduto).filter(CadastroProduto.codigo == codigo_fmt).first():
                 seq += 1
                 codigo_fmt = f"{prefixo}-{seq:02d}"
@@ -304,7 +302,6 @@ def salvar_estoque(
         codigo_fmt = codigo.strip().upper()
         produto_fmt = formatar_titulo(produto)
 
-        # MODO 1: EDIÇÃO DIRETA DE LINHA EXISTENTE
         if produto_id:
             item = db.query(Estoque).filter(Estoque.id == int(produto_id)).with_for_update().first()
             if item:
@@ -327,7 +324,6 @@ def salvar_estoque(
             db.commit()
             return RedirectResponse(url="/?aba=estoque&ok=Registro+de+estoque+atualizado", status_code=303)
 
-        # MODO 2: AJUSTE / PERDA / QUEBRA (BAIXA DE ESTOQUE)
         if tipo_operacao == "AJUSTE_BAIXA":
             if quantidade <= 0:
                 return RedirectResponse(url="/?aba=estoque&erro=Informe+uma+quantidade+maior+que+zero+para+baixa", status_code=303)
@@ -358,7 +354,6 @@ def salvar_estoque(
             db.commit()
             return RedirectResponse(url=f"/?aba=estoque&ok={quote(f'Baixa de {quantidade} un. ({motivo_final}) registrada com sucesso!')}", status_code=303)
 
-        # MODO 3: ENTRADA DE MERCADORIA (SOMA AO SALDO ATUAL)
         item_existente = db.query(Estoque).filter(Estoque.codigo == codigo_fmt).with_for_update().first()
         if item_existente:
             saldo_ant = item_existente.quantidade
