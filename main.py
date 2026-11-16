@@ -117,12 +117,8 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
         total_unidades_estoque = sum(p.quantidade for p in estoque_itens)
         valor_total_venda_estoque = sum((Decimal(str(p.vl_venda)) * p.quantidade) for p in estoque_itens)
 
-        # Totalizadores Gerais de Vendas Concluídas
-        vendas_concluidas = [v for v in vendas_todas if v.status == "CONCLUIDA"]
-        valor_total_vendas_geral = sum((Decimal(str(v.vl_venda)) * v.quantidade) for v in vendas_concluidas)
-        qtd_pedidos_concluidos = len(set((v.n_pedido or f"PED-{v.id:04d}") for v in vendas_concluidas))
-
         # Serializa vendas concluídas para os gráficos e tabelas dinâmicas do Dashboard
+        vendas_concluidas = [v for v in vendas_todas if v.status == "CONCLUIDA"]
         vendas_dashboard_json = [
             {
                 "id": v.id,
@@ -141,28 +137,31 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
             for v in vendas_concluidas
         ]
 
-        # Agrupa as últimas 80 linhas de vendas por n_pedido para listagem
-        pedidos_agrupados = []
+        # Agrupa todas as vendas por n_pedido em JSON para filtro dinâmico por data na aba Vendas
+        pedidos_agrupados_json = []
         mapa_pedidos = {}
-        for v in vendas_todas[:80]:
+        for v in vendas_todas:
             num = v.n_pedido or f"PED-{v.id:04d}"
+            data_iso = v.data_venda.strftime("%Y-%m-%d") if v.data_venda else date.today().isoformat()
+            data_fmt = v.data_venda.strftime("%d/%m/%Y %H:%M") if v.data_venda else "-"
             if num not in mapa_pedidos:
                 grupo = {
                     "n_pedido": num,
-                    "data_venda": v.data_venda,
+                    "data_iso": data_iso,
+                    "data_fmt": data_fmt,
                     "status": v.status,
                     "itens": [],
-                    "total_pedido": Decimal("0.00")
+                    "total_pedido": 0.0
                 }
                 mapa_pedidos[num] = grupo
-                pedidos_agrupados.append(grupo)
-            subtotal = Decimal(str(v.vl_venda)) * v.quantidade
+                pedidos_agrupados_json.append(grupo)
+            subtotal = float(Decimal(str(v.vl_venda)) * v.quantidade)
             mapa_pedidos[num]["itens"].append({
                 "codigo": v.codigo,
                 "produto": v.produto,
                 "quantidade": v.quantidade,
                 "vl_venda": float(v.vl_venda),
-                "subtotal": float(subtotal)
+                "subtotal": subtotal
             })
             mapa_pedidos[num]["total_pedido"] += subtotal
 
@@ -190,15 +189,13 @@ def home(request: Request, aba: str = "vendas", erro: str = "", ok: str = ""):
             context={
                 "cadastros": cadastros,
                 "produtos": estoque_itens,
-                "pedidos": pedidos_agrupados,
                 "movimentacoes": movimentacoes,
                 "cadastros_json": cadastros_json,
                 "estoque_json": estoque_json,
                 "vendas_dashboard_json": vendas_dashboard_json,
+                "pedidos_agrupados_json": pedidos_agrupados_json,
                 "total_unidades_estoque": total_unidades_estoque,
                 "valor_total_venda_estoque": valor_total_venda_estoque,
-                "valor_total_vendas_geral": valor_total_vendas_geral,
-                "qtd_pedidos_concluidos": qtd_pedidos_concluidos,
                 "data_hoje": hoje.isoformat(),
                 "mes_atual": hoje.strftime("%Y-%m"),
                 "proximo_pedido": proximo_pedido,
@@ -283,7 +280,7 @@ def excluir_cadastro_produto(id: int):
     return RedirectResponse(url="/?aba=cadastro&ok=Produto+removido+do+cadastro", status_code=303)
 
 # ==========================================
-# ROTAS: LANÇAMENTO E AJUSTE DE ESTOQUE
+# ROTAS: MOVIMENTAÇÃO DE ESTOQUE
 # ==========================================
 
 @app.post("/estoque/salvar")
