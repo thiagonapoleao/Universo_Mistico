@@ -283,7 +283,7 @@
         </section>
 
         <!-- ======================================================= -->
-        <!-- SEÇÃO 2: DASHBOARD ANALÍTICO (GRÁFICOS + RESUMOS)       -->
+        <!-- SEÇÃO 2: DASHBOARD ANALÍTICO (BARRAS + CUSTOS + RESUMOS)-->
         <!-- ======================================================= -->
         <section id="sec-dashboard" class="hidden flex-col space-y-6">
             
@@ -292,7 +292,7 @@
                     <h2 class="font-mystic text-lg sm:text-xl font-bold text-amber-200 flex items-center gap-2">
                         <span>📊</span> Oráculo de Vendas (Dashboard)
                     </h2>
-                    <p class="text-xs text-purple-300/70">Acompanhamento dinâmico de faturamento, quantidades e produtos mais vendidos</p>
+                    <p class="text-xs text-purple-300/70">Acompanhamento dinâmico de faturamento, custos, quantidades e produtos mais vendidos</p>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-3">
@@ -310,32 +310,48 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="glass-card rounded-2xl p-4">
+            <!-- KPIs Dinâmicos do Mês e do Dia em Foco (Incluindo Valor de Custo) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Linha Mês -->
+                <div class="glass-card rounded-2xl p-4 border-emerald-500/25">
                     <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Faturamento no Mês</p>
                     <p id="kpi_mes_valor" class="text-xl sm:text-2xl font-bold text-emerald-400 mt-1">R$ 0,00</p>
                     <p id="kpi_mes_qtd" class="text-xs text-purple-300 mt-1">0 unidades vendidas</p>
                 </div>
 
-                <div class="glass-card rounded-2xl p-4">
+                <div class="glass-card rounded-2xl p-4 border-rose-500/25">
+                    <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Custo Itens Vendidos (Mês)</p>
+                    <p id="kpi_mes_custo" class="text-xl sm:text-2xl font-bold text-rose-300 mt-1">R$ 0,00</p>
+                    <p class="text-xs text-purple-300/70 mt-1">Custo total das saídas no mês</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-4 border-amber-500/25">
                     <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Lucro Bruto no Mês</p>
                     <p id="kpi_mes_lucro" class="text-xl sm:text-2xl font-bold text-amber-300 mt-1">R$ 0,00</p>
                     <p class="text-xs text-purple-300/70 mt-1">Venda − Custo</p>
                 </div>
 
-                <div class="glass-card rounded-2xl p-4">
+                <!-- Linha Dia -->
+                <div class="glass-card rounded-2xl p-4 border-emerald-500/25">
                     <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Faturamento no Dia</p>
                     <p id="kpi_dia_valor" class="text-xl sm:text-2xl font-bold text-emerald-400 mt-1">R$ 0,00</p>
                     <p id="kpi_dia_qtd" class="text-xs text-purple-300 mt-1">0 unidades vendidas</p>
                 </div>
 
-                <div class="glass-card rounded-2xl p-4">
+                <div class="glass-card rounded-2xl p-4 border-rose-500/25">
+                    <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Custo Itens Vendidos (Dia)</p>
+                    <p id="kpi_dia_custo" class="text-xl sm:text-2xl font-bold text-rose-300 mt-1">R$ 0,00</p>
+                    <p class="text-xs text-purple-300/70 mt-1">Custo total das saídas no dia</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-4 border-amber-500/25">
                     <p class="text-[11px] text-purple-300/80 uppercase tracking-wider">Lucro Bruto no Dia</p>
                     <p id="kpi_dia_lucro" class="text-xl sm:text-2xl font-bold text-amber-300 mt-1">R$ 0,00</p>
                     <p class="text-xs text-purple-300/70 mt-1">Dia selecionado</p>
                 </div>
             </div>
 
+            <!-- GRÁFICOS EM BARRAS: MENSAL E DIÁRIO -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 <div class="glass-card rounded-2xl p-6">
@@ -359,6 +375,7 @@
                 </div>
             </div>
 
+            <!-- LISTAS RESUMO DE PRODUTOS VENDIDOS -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 <div class="glass-card rounded-2xl p-6">
@@ -373,6 +390,7 @@
                                 <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
                                     <th class="py-2 px-2">Produto</th>
                                     <th class="py-2 px-2 text-center">Qtd</th>
+                                    <th class="py-2 px-2 text-right">Custo</th>
                                     <th class="py-2 px-2 text-right">Total Venda</th>
                                 </tr>
                             </thead>
@@ -394,6 +412,7 @@
                                 <tr class="border-b border-purple-800/40 text-xs text-purple-300 uppercase">
                                     <th class="py-2 px-2">Produto</th>
                                     <th class="py-2 px-2 text-center">Qtd</th>
+                                    <th class="py-2 px-2 text-right">Custo</th>
                                     <th class="py-2 px-2 text-right">Total Venda</th>
                                 </tr>
                             </thead>
@@ -876,7 +895,6 @@
             input.setSelectionRange(pos, pos);
         }
 
-        // Gera código automático padronizado XXX-00 a partir do nome do produto
         function gerarCodigoPadrao(nomeProduto, sequencia) {
             const semAcento = nomeProduto
                 .normalize("NFD")
@@ -942,7 +960,7 @@
         }
 
         // =======================================================
-        // DASHBOARD ANALÍTICO (GRÁFICOS & RESUMOS DINÂMICOS)
+        // DASHBOARD ANALÍTICO (GRÁFICOS EM BARRAS & CUSTOS)
         // =======================================================
         function atualizarDashboard() {
             const mesSelecionado = document.getElementById('dash_filtro_mes').value;
@@ -957,18 +975,22 @@
             const vendasNoDia = dadosVendasDashboard.filter(v => v.data_iso === diaSelecionado);
 
             const totalMesValor = vendasNoMes.reduce((acc, v) => acc + v.subtotal, 0);
+            const totalMesCusto = vendasNoMes.reduce((acc, v) => acc + v.custo_total, 0);
             const totalMesQtd = vendasNoMes.reduce((acc, v) => acc + v.quantidade, 0);
             const totalMesLucro = vendasNoMes.reduce((acc, v) => acc + v.lucro, 0);
 
             const totalDiaValor = vendasNoDia.reduce((acc, v) => acc + v.subtotal, 0);
+            const totalDiaCusto = vendasNoDia.reduce((acc, v) => acc + v.custo_total, 0);
             const totalDiaQtd = vendasNoDia.reduce((acc, v) => acc + v.quantidade, 0);
             const totalDiaLucro = vendasNoDia.reduce((acc, v) => acc + v.lucro, 0);
 
             document.getElementById('kpi_mes_valor').innerText = formatarMoeda(totalMesValor);
+            document.getElementById('kpi_mes_custo').innerText = formatarMoeda(totalMesCusto);
             document.getElementById('kpi_mes_qtd').innerText = `${totalMesQtd} unidades vendidas`;
             document.getElementById('kpi_mes_lucro').innerText = formatarMoeda(totalMesLucro);
 
             document.getElementById('kpi_dia_valor').innerText = formatarMoeda(totalDiaValor);
+            document.getElementById('kpi_dia_custo').innerText = formatarMoeda(totalDiaCusto);
             document.getElementById('kpi_dia_qtd').innerText = `${totalDiaQtd} unidades vendidas`;
             document.getElementById('kpi_dia_lucro').innerText = formatarMoeda(totalDiaLucro);
 
@@ -986,9 +1008,10 @@
             const mapa = {};
             listaVendas.forEach(v => {
                 if (!mapa[v.codigo]) {
-                    mapa[v.codigo] = { codigo: v.codigo, produto: v.produto, qtd: 0, total: 0 };
+                    mapa[v.codigo] = { codigo: v.codigo, produto: v.produto, qtd: 0, custo: 0, total: 0 };
                 }
                 mapa[v.codigo].qtd += v.quantidade;
+                mapa[v.codigo].custo += v.custo_total;
                 mapa[v.codigo].total += v.subtotal;
             });
 
@@ -996,7 +1019,7 @@
             badge.innerText = `${ranking.length} ${ranking.length === 1 ? 'produto' : 'produtos'}`;
 
             if (ranking.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="py-6 text-center text-purple-400/60 text-xs">${msgVazio}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-purple-400/60 text-xs">${msgVazio}</td></tr>`;
                 return;
             }
 
@@ -1007,6 +1030,7 @@
                         <span class="font-mono text-[10px] text-amber-300/70">${item.codigo}</span>
                     </td>
                     <td class="py-2.5 px-2 text-center font-semibold text-purple-200">${item.qtd} un.</td>
+                    <td class="py-2.5 px-2 text-right text-rose-300/90">${formatarMoeda(item.custo)}</td>
                     <td class="py-2.5 px-2 text-right font-bold text-emerald-400">${formatarMoeda(item.total)}</td>
                 </tr>
             `).join('');
@@ -1016,11 +1040,13 @@
             const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
             const valoresPorMes = Array(12).fill(0);
             const qtdPorMes = Array(12).fill(0);
-            const coresBarras = Array(12).fill('rgba(139, 92, 246, 0.45)');
+            const coresBarrasValor = Array(12).fill('rgba(139, 92, 246, 0.55)');
+            const coresBarrasQtd = Array(12).fill('rgba(251, 191, 36, 0.45)');
 
             const mesFocoIdx = parseInt(mesFoco.split('-')[1], 10) - 1;
             if (mesFocoIdx >= 0 && mesFocoIdx < 12) {
-                coresBarras[mesFocoIdx] = 'rgba(16, 185, 129, 0.9)';
+                coresBarrasValor[mesFocoIdx] = 'rgba(16, 185, 129, 0.95)';
+                coresBarrasQtd[mesFocoIdx] = 'rgba(251, 191, 36, 0.95)';
             }
 
             dadosVendasDashboard.forEach(v => {
@@ -1044,20 +1070,19 @@
                         {
                             label: 'Valor Vendas (R$)',
                             data: valoresPorMes,
-                            backgroundColor: coresBarras,
-                            borderColor: 'rgba(167, 139, 250, 0.8)',
+                            backgroundColor: coresBarrasValor,
+                            borderColor: 'rgba(167, 139, 250, 0.85)',
                             borderWidth: 1,
-                            borderRadius: 6,
+                            borderRadius: 5,
                             yAxisID: 'y'
                         },
                         {
                             label: 'Qtd. Unidades',
                             data: qtdPorMes,
-                            type: 'line',
-                            borderColor: '#fbbf24',
-                            backgroundColor: '#fbbf24',
-                            tension: 0.3,
-                            pointRadius: 4,
+                            backgroundColor: coresBarrasQtd,
+                            borderColor: 'rgba(251, 191, 36, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 5,
                             yAxisID: 'y1'
                         }
                     ]
@@ -1092,13 +1117,15 @@
             const labelsDias = [];
             const valoresPorDia = Array(diasNoMes).fill(0);
             const qtdPorDia = Array(diasNoMes).fill(0);
-            const coresBarras = Array(diasNoMes).fill('rgba(139, 92, 246, 0.45)');
+            const coresBarrasValor = Array(diasNoMes).fill('rgba(16, 185, 129, 0.45)');
+            const coresBarrasQtd = Array(diasNoMes).fill('rgba(139, 92, 246, 0.45)');
 
             for (let d = 1; d <= diasNoMes; d++) {
                 const diaStr = String(d).padStart(2, '0');
                 labelsDias.push(diaStr);
                 if (`${mesSelecionado}-${diaStr}` === diaFoco) {
-                    coresBarras[d - 1] = 'rgba(251, 191, 36, 0.95)';
+                    coresBarrasValor[d - 1] = 'rgba(16, 185, 129, 0.95)';
+                    coresBarrasQtd[d - 1] = 'rgba(251, 191, 36, 0.95)';
                 }
             }
 
@@ -1123,18 +1150,15 @@
                         {
                             label: 'Valor Vendas (R$)',
                             data: valoresPorDia,
-                            backgroundColor: coresBarras,
+                            backgroundColor: coresBarrasValor,
                             borderRadius: 4,
                             yAxisID: 'y'
                         },
                         {
                             label: 'Qtd. Unidades',
                             data: qtdPorDia,
-                            type: 'line',
-                            borderColor: '#34d399',
-                            backgroundColor: '#34d399',
-                            tension: 0.3,
-                            pointRadius: 3,
+                            backgroundColor: coresBarrasQtd,
+                            borderRadius: 4,
                             yAxisID: 'y1'
                         }
                     ]
@@ -1202,7 +1226,6 @@
             document.getElementById('cad_produto').value = item.produto;
             document.getElementById('cad_codigo').value = item.codigo;
 
-            // Extrai a sequência numérica atual do código (ex: "POC-03" -> 3)
             let seqAtual = item.id;
             if (item.codigo && item.codigo.includes("-")) {
                 const sufixo = parseInt(item.codigo.split("-").pop(), 10);
